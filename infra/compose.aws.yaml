@@ -1,0 +1,48 @@
+x-logging: &logs
+  driver: awslogs
+  options:
+    awslogs-region: ${AWS_REGION}
+    awslogs-group: /${APP_NAME}
+    awslogs-stream: ${RELEASE_COMMIT}
+x-worker: &worker
+  env_file: /srv/only-bears/runtime.env
+  environment:
+    API_URL: http://api:8000
+    MODE: real
+    MODEL_DIR: /models
+    WORKER_LOCK: /locks/inference.lock
+    RELEASE_COMMIT: ${RELEASE_COMMIT}
+  volumes:
+    - /opt/only-bears/models:/models:ro
+    - /opt/only-bears/locks:/locks
+  restart: unless-stopped
+  logging: *logs
+services:
+  db:
+    image: postgres:16.10
+    environment:
+      POSTGRES_DB: bears
+      POSTGRES_USER: bears
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes: [/srv/only-bears/postgres:/var/lib/postgresql/data]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U bears]
+      interval: 3s
+      retries: 30
+    logging: *logs
+  api:
+    image: ${REGISTRY}/${APP_NAME}/api:${RELEASE_COMMIT}
+    env_file: /srv/only-bears/runtime.env
+    environment: {RELEASE_COMMIT: '${RELEASE_COMMIT}'}
+    ports: ['127.0.0.1:8000:8000']
+    restart: unless-stopped
+    depends_on:
+      db: {condition: service_healthy}
+    logging: *logs
+  detector:
+    <<: *worker
+    image: ${REGISTRY}/${APP_NAME}/detector:${RELEASE_COMMIT}
+  recognition:
+    <<: *worker
+    image: ${REGISTRY}/${APP_NAME}/recognition:${RELEASE_COMMIT}

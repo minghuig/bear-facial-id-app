@@ -14,10 +14,10 @@ The tracer bullet must run against a real AWS backend with real detection and re
 
 This document records the owner's decisions from the application-scoping conversation. For tracer bullet scope, those decisions supersede the broader implementation sequence and requirements in the earlier Bear ID documents. Use the earlier documents for technical evidence and implementation references, not to silently expand this milestone.
 
-- Product background: `/Users/minghuiguo/Documents/bear-id/APP_SPEC.md`
-- Detailed previous plan and verified model setup: `/Users/minghuiguo/Documents/bear-id/PROJECT_PLAN.md`
-- Historical experiments: `/Users/minghuiguo/Documents/bear-id/PROJECT_NOTES.md`
-- Proposed new application directory: `/Users/minghuiguo/Documents/only-bears`
+- Product background: sibling prototype `bear-id/APP_SPEC.md` (outside this repository)
+- Detailed previous plan and verified model setup: sibling prototype `bear-id/PROJECT_PLAN.md`
+- Historical experiments: sibling prototype `bear-id/PROJECT_NOTES.md`
+- Proposed new application directory: this repository (`only-bears`)
 
 At handoff, `only-bears` was empty and was not a Git repository. Use it for the new application; treat `bear-id` as the source of prototype code, evidence, and private local artifacts. Preserve the prototype directory. This repository placement is an implementation assumption based on the current workspace, not a request to move or delete the prototype.
 
@@ -150,7 +150,7 @@ The following facts are established by the prototype:
 - Automatic detection crops have not yet been connected to recognition in a packaged end-to-end service.
 - Model execution is verified; reliable identification on recent photos is not. Recent matching has been inconsistent.
 
-Useful implementation inputs under `/Users/minghuiguo/Documents/bear-id/`:
+Useful implementation inputs under the sibling `bear-id/` prototype:
 
 | Input | Relative path |
 | --- | --- |

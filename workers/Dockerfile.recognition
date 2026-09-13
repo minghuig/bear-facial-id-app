@@ -1,0 +1,8 @@
+FROM --platform=linux/amd64 python:3.12-slim
+WORKDIR /worker
+RUN pip install --no-cache-dir torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/cpu && \
+ pip install --no-cache-dir timm==0.6.13 numpy==1.26.4 Pillow==11.3.0 opencv-python-headless==4.11.0.86 matplotlib==3.10.6 wandb==0.21.3 httpx==0.28.1
+COPY workers/ .
+USER 10001
+ENV MODE=real STAGE=recognition WANDB_MODE=disabled
+CMD ["python", "worker.py"]

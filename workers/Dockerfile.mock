@@ -1,0 +1,6 @@
+FROM python:3.12-slim
+WORKDIR /worker
+RUN pip install --no-cache-dir httpx==0.28.1 Pillow==11.3.0
+COPY workers/ .
+USER 10001
+CMD ["python", "worker.py"]

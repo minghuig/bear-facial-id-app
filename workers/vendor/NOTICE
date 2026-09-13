@@ -1,0 +1,7 @@
+Source: https://github.com/amathislab/BrownBear_ReID
+Commit: 4a9f5be8a57c7493096cab1b114dcd71489a3dbe
+Subset: PoseGuidedReID/project/models; files unchanged, hashes in SOURCE_HASHES.json.
+Attribution: BrownBear_ReID authors / amathislab. Preserve upstream inline attribution.
+No code LICENSE file was present at this commit. Dataset README declares CC BY-NC 4.0;
+checkpoint terms are unspecified. Resolve code/checkpoint permissions before staff rollout.
+This private research tracer does not settle those licensing questions.
