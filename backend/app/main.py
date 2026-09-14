@@ -80,7 +80,9 @@ def upload(db: DB, files: Annotated[list[UploadFile], File()]):
             result.append({**photo_json(existing), 'duplicate':True}); continue
         try:
             image = Image.open(io.BytesIO(data))
-            if image.format not in ('JPEG','PNG'): raise ValueError('JPEG/PNG only')
+            if image.format not in ('JPEG','MPO','PNG'): raise ValueError('JPEG/PNG only')
+            # Camera JPEGs may carry MPO metadata; process their primary frame.
+            image.seek(0)
             image = ImageOps.exif_transpose(image).convert('RGB')
             image.load()
         except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as e:
@@ -186,9 +188,14 @@ def retry(job_id: str, db: DB):
     if job.state != 'failed': raise HTTPException(409, 'Only failed jobs can retry')
     if job.stage == 'recognition':
         raise HTTPException(409, 'Use Run recognition to retry failed eligible heads')
-    # A new bounded job preserves all prior attempts.
-    db.add(Job(photo_id=job.photo_id,stage=job.stage,pipeline=job.pipeline))
-    need(db,Photo,job.photo_id).detection_state = 'queued'
+    photo = need(db,Photo,job.photo_id)
+    if job.pipeline != s.pipeline:
+        if db.scalar(select(Observation.id).where(Observation.photo_id == photo.id).limit(1)):
+            raise HTTPException(409, 'Existing observations cannot move to another pipeline')
+        photo.pipeline = s.pipeline
+    # A new bounded job preserves prior attempts and uses the deployed pipeline.
+    db.add(Job(photo_id=job.photo_id,stage=job.stage,pipeline=photo.pipeline))
+    photo.detection_state = 'queued'
     job.state = 'superseded'; db.commit()
     return {'queued':True}
 

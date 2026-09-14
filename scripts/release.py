@@ -33,12 +33,11 @@ bash /opt/only-bears/releases/{commit}/scripts/remote-release.sh {commit} {regio
     command_id = json.loads(aws('ssm','send-command','--instance-ids',instance,'--document-name','AWS-RunShellScript','--parameters','file://'+str(params),'--output','json'))['Command']['CommandId']
     print(f'Release {commit}; SSM command {command_id}', flush=True)
     while True:
-        try: result = json.loads(aws('ssm','get-command-invocation','--command-id',command_id,'--instance-id',instance,'--output','json'))
+        # Keep polling ASCII-only: legacy Windows CLI encodings can reject build logs.
+        try: result = json.loads(aws('ssm','get-command-invocation','--command-id',command_id,'--instance-id',instance,'--query','{Status:Status,ResponseCode:ResponseCode}','--output','json'))
         except subprocess.CalledProcessError:
             time.sleep(5); continue
         if result['Status'] in ('Pending','InProgress','Delayed'):
             time.sleep(10); continue
-        print(result.get('StandardOutputContent',''))
-        print(result.get('StandardErrorContent',''))
-        if result['Status'] != 'Success': raise SystemExit('Deployment failed: '+result['Status'])
+        if result['Status'] != 'Success': raise SystemExit(f"Deployment failed: {result['Status']}; inspect SSM command {command_id}")
         print('Deployed commit: '+commit); break
