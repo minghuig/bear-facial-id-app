@@ -11,7 +11,7 @@ def vector(value):
 def candidates(db, query):
     q = vector(query.embedding)
     refs = db.scalars(select(Observation).where(
-        Observation.review_state.in_(['confirmed', 'unresolved']),
+        Observation.org_id == query.org_id, Observation.review_state.in_(['confirmed', 'unresolved']),
         Observation.pipeline == query.pipeline, Observation.photo_id != query.photo_id,
         Observation.id != query.id, Observation.embedding.is_not(None))).all()
     best = {}
@@ -38,7 +38,7 @@ def candidates(db, query):
     return sorted(best.values(), key=lambda c: (-c['cosine'], c['kind'], c['id']))
 
 def snapshot(db, query, gallery):
-    row = Suggestion(observation_id=query.id, pipeline=query.pipeline,
+    row = Suggestion(org_id=query.org_id, observation_id=query.id, pipeline=query.pipeline,
                      gallery_revision=gallery.revision,
                      candidates=candidates(db, query)[:5])
     db.add(row)

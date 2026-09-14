@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     job_timeout_seconds: int = 1800
     max_attempts: int = 3
     auto_recognize: bool = True
+    auth_mode: str = 'local'
+    public_deployment: bool = False
+    public_origin: str = 'http://localhost:5173'
+    google_client_id: str = ''
+    google_client_secret: str = ''
+    oauth_cookie_secret: str = ''
 
 @lru_cache
 def settings():
@@ -22,4 +28,10 @@ def settings():
         raise ValueError('WORKER_TOKEN must have at least 24 characters')
     if s.environment != 'local' and s.pipeline.startswith('mock'):
         raise ValueError('Mock pipeline forbidden outside local environment')
+    if s.auth_mode not in ('local', 'google'):
+        raise ValueError('Unknown authentication mode')
+    if s.public_deployment and (s.auth_mode != 'google' or not s.public_origin.startswith('https://')):
+        raise ValueError('Public deployment requires Google authentication and HTTPS')
+    if s.auth_mode == 'google' and (not s.google_client_id or not s.google_client_secret or len(s.oauth_cookie_secret) < 32):
+        raise ValueError('Google authentication configuration is incomplete')
     return s

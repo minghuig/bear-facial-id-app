@@ -9,12 +9,16 @@ class Base(DeclarativeBase): pass
 class Record:
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-class Batch(Record, Base):
+class OrgScoped:
+    org_id: Mapped[str] = mapped_column(String(36), default='internal-testing', index=True)
+
+class Batch(OrgScoped, Record, Base):
     __tablename__ = 'batches'
-class Photo(Record, Base):
+class Photo(OrgScoped, Record, Base):
     __tablename__ = 'photos'
     batch_id: Mapped[str] = mapped_column(ForeignKey('batches.id'))
-    sha256: Mapped[str] = mapped_column(String(64), unique=True)
+    __table_args__ = (UniqueConstraint('org_id', 'sha256'),)
+    sha256: Mapped[str] = mapped_column(String(64))
     filename: Mapped[str] = mapped_column(Text)
     original_key: Mapped[str] = mapped_column(Text)
     oriented_key: Mapped[str] = mapped_column(Text)
@@ -24,7 +28,7 @@ class Photo(Record, Base):
     pipeline: Mapped[str] = mapped_column(Text)
     detections: Mapped[list] = mapped_column(JSON, default=list)
     provenance: Mapped[dict] = mapped_column(JSON, default=dict)
-class Observation(Record, Base):
+class Observation(OrgScoped, Record, Base):
     __tablename__ = 'observations'
     __table_args__ = (UniqueConstraint('photo_id', 'index'),)
     photo_id: Mapped[str] = mapped_column(ForeignKey('photos.id'), index=True)
@@ -38,25 +42,25 @@ class Observation(Record, Base):
     embedding: Mapped[list | None] = mapped_column(JSON, nullable=True)
     diagnostics: Mapped[dict] = mapped_column(JSON, default=dict)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
-class Bear(Record, Base):
+class Bear(OrgScoped, Record, Base):
     __tablename__ = 'bears'
     name: Mapped[str | None] = mapped_column(String(120), nullable=True)
-class Review(Record, Base):
+class Review(OrgScoped, Record, Base):
     __tablename__ = 'reviews'
     observation_id: Mapped[str] = mapped_column(ForeignKey('observations.id'), index=True)
     state: Mapped[str] = mapped_column(String)
     bear_id: Mapped[str | None] = mapped_column(ForeignKey('bears.id'), nullable=True)
-class Gallery(Base):
+class Gallery(OrgScoped, Base):
     __tablename__ = 'gallery'
     id: Mapped[int] = mapped_column(primary_key=True)
     revision: Mapped[int] = mapped_column(default=0)
-class Suggestion(Record, Base):
+class Suggestion(OrgScoped, Record, Base):
     __tablename__ = 'suggestions'
     observation_id: Mapped[str] = mapped_column(ForeignKey('observations.id'), index=True)
     pipeline: Mapped[str] = mapped_column(Text)
     gallery_revision: Mapped[int] = mapped_column(Integer)
     candidates: Mapped[list] = mapped_column(JSON)
-class Job(Record, Base):
+class Job(OrgScoped, Record, Base):
     __tablename__ = 'jobs'
     photo_id: Mapped[str] = mapped_column(ForeignKey('photos.id'), index=True)
     stage: Mapped[str] = mapped_column(String)
@@ -68,9 +72,33 @@ class Job(Record, Base):
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
-class Attempt(Record, Base):
+class Attempt(OrgScoped, Record, Base):
     __tablename__ = 'attempts'
     job_id: Mapped[str] = mapped_column(ForeignKey('jobs.id'), index=True)
     token: Mapped[str] = mapped_column(String, unique=True)
     state: Mapped[str] = mapped_column(default='running')
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+class Organization(Base):
+    __tablename__ = 'organizations'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+
+class User(Record, Base):
+    __tablename__ = 'users'
+    google_sub: Mapped[str] = mapped_column(String(255), unique=True)
+    email: Mapped[str] = mapped_column(String(320))
+
+class Membership(Base):
+    __tablename__ = 'memberships'
+    org_id: Mapped[str] = mapped_column(ForeignKey('organizations.id'), primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), primary_key=True)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey('users.id'), nullable=True)
+
+class LoginSession(Base):
+    __tablename__ = 'login_sessions'
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'))
+    org_id: Mapped[str] = mapped_column(ForeignKey('organizations.id'))
+    csrf: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -45,10 +45,24 @@ chmod 755 /opt/only-bears/models
 chmod 644 /opt/only-bears/models/*.pth
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY"
 # Build sequentially on AWS. Existing immutable commit tags are reused.
-for service in api detector recognition; do
+set -a
+source /srv/only-bears/runtime.env
+set +a
+services=(api detector recognition)
+compose_files=(-f infra/compose.aws.yaml)
+if [ "${PUBLIC_DEPLOYMENT:-false}" = true ]; then
+  : "${PUBLIC_ORIGIN:?Public origin required}"
+  : "${GOOGLE_CLIENT_ID:?Google client ID required}"
+  : "${GOOGLE_CLIENT_SECRET:?Google client secret required}"
+  : "${OAUTH_COOKIE_SECRET:?OAuth cookie secret required}"
+  services+=(web)
+  compose_files+=(-f infra/compose.public.yaml)
+fi
+for service in "${services[@]}"; do
   if ! aws ecr describe-images --region "$REGION" --repository-name "$APP_NAME/$service" --image-ids "imageTag=$COMMIT" >/dev/null 2>&1; then
     file="workers/Dockerfile.$service"
     [ "$service" != api ] || file=backend/Dockerfile
+    [ "$service" != web ] || file=frontend/Dockerfile
     docker build -f "$file" -t "$REGISTRY/$APP_NAME/$service:$COMMIT" .
     docker push "$REGISTRY/$APP_NAME/$service:$COMMIT"
   fi
@@ -57,13 +71,13 @@ export RELEASE_COMMIT=$COMMIT AWS_REGION=$REGION REGISTRY APP_NAME
 set -a
 source /srv/only-bears/runtime.env
 set +a
-compose() { docker compose -p only-bears -f infra/compose.aws.yaml "$@"; }
+compose() { docker compose -p only-bears "${compose_files[@]}" "$@"; }
 # Quiesce writers; preserve a pre-migration logical backup on the durable disk.
-compose stop detector recognition api
+compose stop "${services[@]}"
 compose up -d --wait db
 compose exec -T db pg_dump -U bears -Fc bears > "/srv/only-bears/backups/pre-$COMMIT-$(date +%s).dump"
 compose run --rm --no-deps api alembic upgrade head
-compose up -d api detector recognition
+compose up -d "${services[@]}"
 for i in $(seq 1 60); do
   if curl -fsS http://localhost:8000/health > /tmp/only-bears-health.json; then
     python3 -c 'import json,sys; assert json.load(open("/tmp/only-bears-health.json"))["commit"]==sys.argv[1]' "$COMMIT"

@@ -3,10 +3,14 @@ import {createRoot} from 'react-dom/client';
 import {QueryClient, QueryClientProvider, useQuery} from '@tanstack/react-query';
 import {Alert, AppBar, Button, Card, CardContent, Chip, CircularProgress, Container, CssBaseline, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Select, Stack, Tab, Tabs, TextField, ThemeProvider, Toolbar, Typography, createTheme} from '@mui/material';
 import './styles.css';
+import {SignInPage} from './SignInPage';
 import {PhotoBrowser} from './PhotoBrowser';
 import LiveComparison from './LiveComparison';
 
 const qc = new QueryClient();
+let csrfToken='';
+let currentOrg='';
+type Identity={mode:string;email:string;org_id:string;csrf:string;organizations:{id:string;name:string}[]};
 const theme = createTheme({
  palette:{primary:{main:'#315a46'},background:{default:'#f5f6f3'},text:{primary:'#24352b',secondary:'#5b665f'}},
  shape:{borderRadius:8},
@@ -21,7 +25,9 @@ const theme = createTheme({
  }
 });
 async function api<T>(path:string,method='GET',body?:unknown):Promise<T>{
-  const r=await fetch(path,{method,headers:body instanceof FormData?{}:{'Content-Type':'application/json'},body:body instanceof FormData?body:body===undefined?undefined:JSON.stringify(body)});
+  const r=await fetch(path,{method,headers:{...(body instanceof FormData?{}:{'Content-Type':'application/json'}),'X-CSRF-Token':csrfToken,'X-Organization-ID':currentOrg},body:body instanceof FormData?body:body===undefined?undefined:JSON.stringify(body)});
+  if(r.status===401&&path.startsWith('/api/')){window.location.reload();throw new Error('Session expired');}
+  if(r.status===409&&path.startsWith('/api/')){const message=await r.text();if(message.includes('Organization changed'))window.location.reload();throw new Error(message);}
   if(!r.ok) throw new Error((await r.text()) || r.statusText); return r.json();
 }
 type Bear={id:string;name:string|null;thumbnail_url?:string|null};
@@ -30,19 +36,19 @@ type Head={id:string;index:number;box:number[];crop_url:string;recognition_state
 type Photo={id:string;filename:string;image_url:string;thumbnail_url:string;width:number;height:number;detection_state:string;pipeline:string;status_label?:string;created_at?:string;bear_ids?:string[]};
 type Detail=Photo&{heads:Head[];jobs:{id:string;stage:string;state:string;error:string|null;attempts:number}[]};
 const label=(b:Bear)=>b.name||`Unnamed bear · ${b.id.slice(0,8)}`;
-function App(){
+function App({identity}:{identity:Identity}){
  const [comparison,setComparison]=useState<{headId:string;filename:string}|null>(null);
  const [tab,setTab]=useState(0),[selected,setSelected]=useState(''),[index,setIndex]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
  const [pendingUploads,setPendingUploads]=useState<{name:string;url:string}[]>([]);
  const [uploadCount,setUploadCount]=useState(0),[noticeSeverity,setNoticeSeverity]=useState<'success'|'warning'|'error'>('success');
  const [bearChoice,setBearChoice]=useState(''),[dialog,setDialog]=useState<'create'|'rename'|null>(null),[name,setName]=useState(''),[bearView,setBearView]=useState('');
- const health=useQuery({queryKey:['health'],queryFn:()=>api<{pipeline:string;commit:string;environment:string}>('/health')});
- const photos=useQuery({queryKey:['photos'],queryFn:()=>api<Photo[]>('/api/photos'),refetchInterval:3000});
- const bears=useQuery({queryKey:['bears'],queryFn:()=>api<Bear[]>('/api/bears')});
- const detail=useQuery({queryKey:['photo',selected],queryFn:()=>api<Detail>('/api/photos/'+selected),enabled:!!selected,refetchInterval:2000});
- const refs=useQuery({queryKey:['refs',bearView],queryFn:()=>api<Head[]>(`/api/bears/${bearView}/references`),enabled:!!bearView});
+ const health=useQuery({queryKey:[identity.org_id,'health'],queryFn:()=>api<{pipeline:string;commit:string;environment:string}>('/api/status')});
+ const photos=useQuery({queryKey:[identity.org_id,'photos'],queryFn:()=>api<Photo[]>('/api/photos'),refetchInterval:3000});
+ const bears=useQuery({queryKey:[identity.org_id,'bears'],queryFn:()=>api<Bear[]>('/api/bears')});
+ const detail=useQuery({queryKey:[identity.org_id,'photo',selected],queryFn:()=>api<Detail>('/api/photos/'+selected),enabled:!!selected,refetchInterval:2000});
+ const refs=useQuery({queryKey:[identity.org_id,'refs',bearView],queryFn:()=>api<Head[]>(`/api/bears/${bearView}/references`),enabled:!!bearView});
  const head=detail.data?.heads[index];
- const history=useQuery({queryKey:['history',head?.id],queryFn:()=>api<{id:string;state:string;bear_id:string|null;created_at:string}[]>(`/api/heads/${head!.id}/history`),enabled:!!head});
+ const history=useQuery({queryKey:[identity.org_id,'history',head?.id],queryFn:()=>api<{id:string;state:string;bear_id:string|null;created_at:string}[]>(`/api/heads/${head!.id}/history`),enabled:!!head});
  async function act(fn:()=>Promise<unknown>,lock=true){setError('');if(lock)setBusy(true);try{await fn();await qc.invalidateQueries();}catch(e){setError(String(e));}finally{if(lock)setBusy(false);}}
  function review(state:string,bear_id?:string){if(head)void act(()=>api(`/api/heads/${head.id}/review`,'POST',{state,bear_id:bear_id||null}));}
  const recognizing=!!detail.data?.heads.some(h=>['queued','running'].includes(h.recognition_state));
@@ -51,11 +57,13 @@ function App(){
  return <>
  <div style={{display:comparison?'none':'contents'}}>
   <AppBar position="static" elevation={0} color="transparent" sx={{background:'#fff',borderBottom:'1px solid #dce2dc'}}>
-   <Toolbar variant="dense" sx={{gap:2,minHeight:64}}>
+<Toolbar variant="dense" sx={{gap:2,minHeight:64}}>
     <div className="portal-brand">
      <img className="portal-brand-mark" src="/bear.svg" width="42" height="42" alt=""/>
      <Typography component="h1" variant="h6" sx={{fontWeight:800,letterSpacing:'-0.6px',color:'primary.main',whiteSpace:'nowrap'}}>Only Bears</Typography>
     </div>
+    <Select size="small" value={identity.org_id} disabled={busy||uploadCount>0||identity.organizations.length<2} inputProps={{"aria-label":"Organization"}} onChange={e=>void act(async()=>{await api("/api/session/organization","POST",{org_id:e.target.value});qc.clear();window.location.reload();})}>{identity.organizations.map(o=><MenuItem key={o.id} value={o.id}>{o.name}</MenuItem>)}</Select>
+    {identity.mode==="google"&&<Button onClick={()=>void act(async()=>{await api("/api/session/logout","POST");qc.clear();window.location.reload();})}>Sign out</Button>}
     <Chip size="small" variant="outlined" label={!health.data?'Connecting':health.data.pipeline.startsWith('mock')?'Mock inference':health.data.environment==='aws'?'AWS · CPU':'Local · CPU'}/>
    </Toolbar>
   </AppBar>
@@ -71,6 +79,7 @@ function App(){
       {uploadCount>0?`Uploading ${uploadCount} photo${uploadCount===1?'':'s'}…`:'Upload photos'}
       <input hidden multiple type="file" accept="image/jpeg,image/png" onChange={e=>{
        const files=Array.from(e.target.files||[]);e.target.value='';if(!files.length)return;
+       if(files.some(f=>f.size>25*1024*1024)){setError('Each photo must be 25 MiB or smaller.');return;}
        if(files.length>20){setError('Select up to 20 photos at once.');return;}
        setNotice('');setUploadCount(files.length);
        const pending=files.map(f=>({name:f.name,url:URL.createObjectURL(f)}));setPendingUploads(pending);
@@ -141,7 +150,15 @@ function App(){
   </Container>
   <Dialog open={!!dialog} onClose={()=>setDialog(null)} fullWidth maxWidth="xs"><DialogTitle>{dialog==='create'?'Create a distinct bear':'Edit display name'}</DialogTitle><DialogContent><TextField fullWidth autoFocus label="Display name (optional)" value={name} inputProps={{maxLength:120}} onChange={e=>setName(e.target.value)} sx={{mt:1}}/><Typography variant="body2" color="text.secondary" sx={{mt:1}}>Leave blank for an unnamed identity. “Unknown” is not a shared identity.</Typography></DialogContent><DialogActions><Button onClick={()=>setDialog(null)}>Cancel</Button><Button disabled={busy} onClick={()=>act(async()=>{if(dialog==='create'){const b=await api<Bear>('/api/bears','POST',{name:name||null});await api(`/api/heads/${head!.id}/review`,'POST',{state:'confirmed',bear_id:b.id});}else await api(`/api/bears/${bearView}`,'PATCH',{name:name||null});setDialog(null);})}>Save</Button></DialogActions></Dialog>
  </div>
- {comparison&&<LiveComparison key={comparison.headId} {...comparison} bears={bears.data||[]} onBack={()=>setComparison(null)} onChanged={()=>{void qc.invalidateQueries();}}/>}
+ {comparison&&<LiveComparison key={comparison.headId} {...comparison} orgId={identity.org_id} api={api} bears={bears.data||[]} onBack={()=>setComparison(null)} onChanged={()=>{void qc.invalidateQueries();}}/>}
  </>;
 }
-createRoot(document.getElementById('root')!).render(<React.StrictMode><QueryClientProvider client={qc}><ThemeProvider theme={theme}><CssBaseline/><App/></ThemeProvider></QueryClientProvider></React.StrictMode>);
+function AccountGate(){
+ const identity=useQuery({queryKey:['identity'],queryFn:async()=>{const r=await fetch('/auth/me');if(r.status===401||r.status===403)return null;if(!r.ok)throw new Error('Unable to check sign-in');return r.json() as Promise<Identity>;},retry:false,refetchOnWindowFocus:true});
+ if(identity.isPending)return <Container sx={{py:8}}><CircularProgress aria-label="Checking sign-in"/></Container>;
+ if(identity.error)return <Container sx={{py:8}}><Alert severity="error">Cannot connect. Please refresh to try again.</Alert></Container>;
+ if(!identity.data)return <SignInPage/>;
+ csrfToken=identity.data.csrf;currentOrg=identity.data.org_id;
+ return <App key={identity.data.org_id} identity={identity.data}/>;
+}
+createRoot(document.getElementById('root')!).render(<React.StrictMode><QueryClientProvider client={qc}><ThemeProvider theme={theme}><CssBaseline/><AccountGate/></ThemeProvider></QueryClientProvider></React.StrictMode>);

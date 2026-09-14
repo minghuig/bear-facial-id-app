@@ -8,14 +8,11 @@ type Match={id:string;label:string;kind:'bear'|'sighting';similarity:number;refe
 type Head={id:string;crop_url:string;bear_id:string|null;review_state:string};
 type Matches={head:Head;candidates:Match[]};
 type Undo={head_review_id:string;reference_review_id:string|null};
-async function request<T>(path:string,body?:unknown):Promise<T>{
- const response=await fetch(path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});
- if(!response.ok){let message='Unable to save. Please try again.';try{const error=await response.json();message=typeof error.detail==='string'?error.detail:message;}catch{}throw new Error(message);}return response.json();
-}
-export default function LiveComparison({headId,filename,bears,onBack,onChanged}:{headId:string;filename:string;bears:{id:string;name:string|null}[];onBack:()=>void;onChanged:()=>void}){
+export default function LiveComparison({headId,filename,bears,orgId,api,onBack,onChanged}:{headId:string;filename:string;orgId:string;api:<T>(path:string,method?:string,body?:unknown)=>Promise<T>;bears:{id:string;name:string|null}[];onBack:()=>void;onChanged:()=>void}){
+ const request=<T,>(path:string,body?:unknown)=>api<T>(path,body===undefined?'GET':'POST',body);
  const [selected,setSelected]=useState(''),[photoId,setPhotoId]=useState(''),[pending,setPending]=useState<{head:Head;match:Match}|null>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[undo,setUndo]=useState<Undo|null>(null),[saved,setSaved]=useState('');
- const query=useQuery({queryKey:['comparison',headId],queryFn:()=>request<Matches>(`/api/heads/${headId}/matches`),refetchInterval:pending||busy?false:5000});
+ const query=useQuery({queryKey:[orgId,'comparison',headId],queryFn:()=>request<Matches>(`/api/heads/${headId}/matches`),refetchInterval:pending||busy?false:5000});
  const data=query.data;
  const matches=[...(data?.candidates||[])].sort((a,b)=>b.similarity-a.similarity);
  const match=matches.find(m=>m.id===selected)||matches[0];

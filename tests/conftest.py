@@ -32,8 +32,13 @@ def api(monkeypatch):
     factory = sessionmaker(engine, expire_on_commit=False)
     with factory.begin() as db:
         db.add(Gallery(id=1, revision=0))
-    def override():
+    from fastapi import Request
+    from app import auth
+    monkeypatch.setattr(auth, 'Session', factory)
+    def override(request: Request):
         with factory() as db:
+            if request.url.path.startswith('/api/'):
+                db.info['org_id'] = request.state.org_id
             yield db
     main.app.dependency_overrides[session] = override
     objects = {}

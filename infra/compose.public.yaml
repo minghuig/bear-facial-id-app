@@ -1,0 +1,17 @@
+# Prepared overlay only. Apply after approved CloudFront/VPC-origin configuration.
+# Never expose this port directly to the Internet; restrict it to the VPC origin.
+services:
+  api:
+    environment:
+      AUTH_MODE: google
+      PUBLIC_DEPLOYMENT: 'true'
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?CloudFront HTTPS URL required}
+      CORS_ORIGIN: ${PUBLIC_ORIGIN:?CloudFront HTTPS URL required}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Google client ID required}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?Google client secret required}
+      OAUTH_COOKIE_SECRET: ${OAUTH_COOKIE_SECRET:?Random cookie signing secret required}
+  web:
+    image: ${REGISTRY}/${APP_NAME}/web:${RELEASE_COMMIT}
+    ports: ['8080:8080']
+    depends_on: [api]
+    restart: unless-stopped

@@ -38,12 +38,18 @@ docker() {
 curl() { printf '{"commit":"test"}\n'; }
 export -f '[' cloud-init blkid mountpoint systemctl aws python3 docker curl
 failures=0
-for CASE in stop_failure first_install existing_install invalid_models; do
+for CASE in stop_failure first_install existing_install invalid_models public_install; do
+  if [[ $CASE == public_install ]]; then
+    export PUBLIC_DEPLOYMENT=true PUBLIC_ORIGIN=https://fixture.cloudfront.net GOOGLE_CLIENT_ID=fixture GOOGLE_CLIENT_SECRET=fixture OAUTH_COOKIE_SECRET=fixture
+  fi
   : > "$LOG"
   set +e
   bash "$ROOT/scripts/remote-release.sh" test us-east-2 bucket registry only-bears vol-test > /tmp/release-output 2>&1
   result=$?
   set -e
+  if [[ $CASE == public_install ]] && ! grep -q 'compose .*compose.public.yaml.*up -d api detector recognition web' "$LOG"; then
+    echo 'FAIL: public release must use auth overlay and start web'; failures=$((failures+1))
+  fi
   case $CASE in
     stop_failure)
       if (( result == 0 )) || grep -Eq 'pg_dump|alembic|compose .* up ' "$LOG"; then

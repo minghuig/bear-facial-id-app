@@ -1,5 +1,7 @@
 # Invite-only MVP plan
 
+> Owner amendment: two isolated organizations (Internal Testing and McNeil), CloudFront hostname first; implementation authorized. Existing data belongs to Internal Testing. See [implementation checkpoint](MVP_IMPLEMENTATION.md) for the revised account boundary, review, setup and remaining work. The singleton-org/custom-domain passages below record the earlier reviewed plan and are superseded.
+
 Revision 2 · September 13, 2026 · baseline a8dcdd4 · planning only, no deployment authorized by this document.
 
 ## Scope
