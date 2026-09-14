@@ -21,8 +21,8 @@ from .photo_status import status as photo_status
 from .retrieval import snapshot, vector
 
 s = settings()
-app = FastAPI(title='Only Bears')
-app.add_middleware(CORSMiddleware, allow_origins=[s.cors_origin], allow_methods=['GET','POST','PATCH'], allow_headers=['Content-Type'])
+app = FastAPI(title='Only Bears', docs_url=None if s.public_deployment else '/docs', redoc_url=None if s.public_deployment else '/redoc')
+app.add_middleware(CORSMiddleware, allow_origins=[s.cors_origin], allow_methods=['GET','POST','PATCH'], allow_headers=['Content-Type','X-CSRF-Token','X-Organization-ID'])
 @app.middleware('http')
 async def restrict_browser_origin(request: Request, call_next):
     origin = request.headers.get('origin')
@@ -42,7 +42,7 @@ def need(db, cls, identity):
     return obj
 
 def lock_gallery(db):
-    return db.scalar(select(Gallery).where(Gallery.id == 1).with_for_update())
+    return db.scalar(select(Gallery).where(Gallery.org_id == db.info.get('org_id', 'internal-testing')).with_for_update())
 
 def photo_json(p):
     return dict(id=p.id, filename=p.filename, width=p.width, height=p.height,
@@ -94,8 +94,9 @@ def upload(db: DB, files: Annotated[list[UploadFile], File()]):
             image.load()
         except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as e:
             result.append({'filename':file.filename, 'error':str(e)}); continue
-        original = f'photos/{digest}/original'
-        oriented = f'photos/{digest}/oriented.png'
+        org = db.info.get('org_id', 'internal-testing')
+        original = f'photos/{org}/{digest}/original'
+        oriented = f'photos/{org}/{digest}/oriented.png'
         out = io.BytesIO(); image.save(out, format='PNG')
         storage.put(original, data, file.content_type or 'application/octet-stream')
         storage.put(oriented, out.getvalue())
@@ -240,7 +241,7 @@ def claim(body: Claim, db: DB):
     if not job: db.commit(); return None
     job.attempts += 1; job.token = uid(); job.state = 'running'; job.started_at = now()
     job.lease_until = now() + timedelta(seconds=s.lease_seconds)
-    db.add(Attempt(job_id=job.id,token=job.token))
+    db.add(Attempt(job_id=job.id,token=job.token,org_id=job.org_id))
     p = need(db,Photo,job.photo_id)
     if job.stage == 'detection': p.detection_state = 'running'
     heads = []
@@ -259,6 +260,7 @@ def claim(body: Claim, db: DB):
 def heartbeat(job_id: str, body: Lease, db: DB):
     job = db.scalar(select(Job).where(Job.id == job_id).with_for_update());
     if not job: raise HTTPException(404)
+    db.info['org_id'] = job.org_id
     assert_lease(job,body.token)
     if (now() - job.started_at).total_seconds() >= s.job_timeout_seconds:
         fail_job(db,job,'Job time limit exceeded'); db.commit(); raise HTTPException(409,'Job time limit exceeded')
@@ -270,6 +272,7 @@ def result(job_id: str, body: Result, db: DB):
     job = db.scalar(select(Job).where(Job.id == job_id).with_for_update())
     if not job: raise HTTPException(404)
     if job.token == body.token and job.state == 'complete': return {'ok':True,'duplicate':True}
+    db.info['org_id'] = job.org_id
     assert_lease(job,body.token)
     if body.pipeline != job.pipeline or body.provenance.get('mode') != ('mock' if s.pipeline.startswith('mock') else 'real'):
         raise HTTPException(409,'Result provenance mismatch')
@@ -294,10 +297,10 @@ def result(job_id: str, body: Result, db: DB):
             oid = uid()
             observation_ids.append(oid)
             db.add(Observation(id=oid,photo_id=p.id,index=index,box=box,crop_key=key,pipeline=p.pipeline,
-                               recognition_state='queued' if s.auto_recognize else 'not_requested'))
+                               recognition_state='queued' if s.auto_recognize else 'not_requested', org_id=job.org_id))
         p.detections = d.boxes; p.provenance = body.provenance; p.detection_state = 'complete'
         if s.auto_recognize and observation_ids:
-            db.add(Job(photo_id=p.id,stage='recognition',pipeline=s.pipeline,observation_ids=observation_ids))
+            db.add(Job(photo_id=p.id,stage='recognition',pipeline=s.pipeline,observation_ids=observation_ids,org_id=job.org_id))
     else:
         gallery = lock_gallery(db)
         ids = [h.observation_id for h in body.heads]
@@ -325,3 +328,6 @@ def result(job_id: str, body: Result, db: DB):
     job.state = 'complete'
     attempt = db.scalar(select(Attempt).where(Attempt.token == job.token)); attempt.state = 'complete'
     db.commit(); return {'ok':True}
+
+from .auth import install as install_auth
+install_auth(app)
