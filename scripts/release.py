@@ -12,6 +12,9 @@ p.add_argument('--approved-spend', action='store_true', help='Use only after own
 a = p.parse_args()
 if not a.approved_spend: p.error('Owner spending approval required; then supply --approved-spend')
 commit = run('git', '-C', str(ROOT), 'rev-parse', '--verify', a.ref+'^{commit}')
+main_commit = run('git', '-C', str(ROOT), 'rev-parse', '--verify', 'main^{commit}')
+if commit != main_commit:
+    p.error('Deploy only the current main commit. Merge the requested changes into main first.')
 # Archive the selected commit; dirty working files can never enter the upload.
 region, bucket, instance, registry, name, volume = [output(k) for k in ('region','bucket','instance_id','registry','name','database_volume_id')]
 with tempfile.TemporaryDirectory() as tmp:
