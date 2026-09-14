@@ -1,4 +1,6 @@
 :root { font-synthesis: none; }
+.portal-brand { display: flex; flex: 1; align-items: center; gap: 11px; min-width: 0; }
+.portal-brand-mark { display: block; flex-shrink: 0; }
 html, body, #root { height: 100%; }
 #root { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 .app-content { flex: 1; min-height: 0; display: flex !important; flex-direction: column; }
@@ -8,7 +10,7 @@ button, summary { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, summary:focus-visible { outline: 3px solid #407963; outline-offset: 3px; }
 .workspace-toolbar, .section-heading, .head-navigation, .assign-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .workspace-toolbar { border-bottom: 1px solid #dce2dc; padding-bottom: 4px; }
-.photo-workspace { display: grid; grid-template-columns: 208px minmax(0, 1fr); gap: 24px; align-items: stretch; flex: 1; min-height: 0; overflow: hidden; }
+.photo-workspace { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: stretch; flex: 1; min-height: 0; overflow: hidden; }
 .collection-list { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .section-label { display: flex; justify-content: space-between; padding: 8px 10px 12px; color: #5b665f; font-size: 12px; font-weight: 600; }
 .section-label span { font-variant-numeric: tabular-nums; }
@@ -58,13 +60,15 @@ button:focus-visible, summary:focus-visible { outline: 3px solid #407963; outlin
 .reference-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin: 20px 0; }
 .reference-grid img { width: 100%; height: 150px; object-fit: contain; background: #f1f3ee; border-radius: 6px; }
 @media (max-width: 1100px) {
- .photo-workspace { grid-template-columns: 176px minmax(0, 1fr); gap: 16px; }
+ .photo-workspace { grid-template-columns: 300px minmax(0, 1fr); gap: 16px; }
  .review-grid { grid-template-columns: minmax(0, 1fr); }
  .photo-stage { min-height: 0; }
 }
 @media (max-width: 600px) {
+ .portal-brand { gap: 8px; }
+ .portal-brand-mark { width: 36px; height: 36px; }
  .workspace-toolbar { flex-wrap: wrap; gap: 8px; padding-bottom: 12px; }
- .photo-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(100px, 26%) minmax(0, 1fr); gap: 12px; }
+ .photo-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(340px, 55%) minmax(0, 1fr); gap: 12px; overflow-y: auto; }
  .collection-item { padding: 7px 8px; }
  .item-name { font-size: 13px; }
  .section-label { padding-bottom: 4px; }
@@ -74,3 +78,20 @@ button:focus-visible, summary:focus-visible { outline: 3px solid #407963; outlin
  .photo-stage { padding: 8px; }
  .assign-row { gap: 8px; }
 }
+.photo-browser { background: #fff; border: 1px solid #dce2dc; border-radius: 10px; overflow: hidden; }
+.library-heading { display: flex; align-items: center; justify-content: space-between; padding: 16px; }
+.library-controls { padding: 0 12px; display: grid; gap: 12px; }
+.library-filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.library-filter-row .MuiSelect-select { font-size: 12px; padding-left: 10px; }
+.library-results { display: flex; align-items: center; justify-content: space-between; min-height: 36px; font-size: 12px; color: #5b665f; }
+.photo-browser .collection-items { border-top: 1px solid #e2e6df; padding: 6px; }
+.photo-browser .collection-item img { width: 56px; height: 56px; }
+.photo-browser .item-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.photo-browser .item-copy { flex: 1; }
+.item-date { display: block; margin-top: 5px; font-size: 11px; color: #788278; }
+.status-needs-review { color: #855c16; }
+.status-reviewed { color: #315a46; }
+.status-failed { color: #b3261e; }
+.library-pagination { display: flex; align-items: center; justify-content: space-between; padding: 8px 6px; border-top: 1px solid #e2e6df; flex-shrink: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+.library-selection-note { padding: 8px 12px; background: #f7f1df; color: #725b2b; font-size: 12px; }
+.library-empty { padding: 24px 12px; text-align: center; font-size: 13px; color: #5b665f; }
