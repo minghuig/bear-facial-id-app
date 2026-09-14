@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import {QueryClient, QueryClientProvider, useQuery} from '@tanstack/react-query';
 import {Alert, AppBar, Button, Card, CardContent, Chip, CircularProgress, Container, CssBaseline, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Select, Stack, Tab, Tabs, TextField, ThemeProvider, Toolbar, Typography, createTheme} from '@mui/material';
 import './styles.css';
+import {SignInPage} from './SignInPage';
 import {PhotoBrowser} from './PhotoBrowser';
 
 const qc = new QueryClient();
@@ -158,7 +159,7 @@ function AccountGate(){
  const identity=useQuery({queryKey:['identity'],queryFn:async()=>{const r=await fetch('/auth/me');if(r.status===401||r.status===403)return null;if(!r.ok)throw new Error('Unable to check sign-in');return r.json() as Promise<Identity>;},retry:false,refetchOnWindowFocus:true});
  if(identity.isPending)return <Container sx={{py:8}}><CircularProgress aria-label="Checking sign-in"/></Container>;
  if(identity.error)return <Container sx={{py:8}}><Alert severity="error">Cannot connect. Please refresh to try again.</Alert></Container>;
- if(!identity.data)return <Container maxWidth="sm" sx={{py:10}}><Card><CardContent><Stack spacing={3}><Typography variant="h4">Only Bears</Typography><Typography>Sign in to your shared bear library.</Typography>{window.location.search.includes('login=denied')&&<Alert severity="warning">This Google account is not invited. Ask the project owner for access.</Alert>}<Button variant="contained" href="/auth/login">Continue with Google</Button><Typography variant="body2" color="text.secondary">Invite only · use the Google account invited by your project owner.</Typography></Stack></CardContent></Card></Container>;
+ if(!identity.data)return <SignInPage/>;
  csrfToken=identity.data.csrf;currentOrg=identity.data.org_id;
  return <App key={identity.data.org_id} identity={identity.data}/>;
 }

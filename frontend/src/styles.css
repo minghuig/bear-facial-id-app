@@ -95,3 +95,23 @@ button:focus-visible, summary:focus-visible { outline: 3px solid #407963; outlin
 .library-pagination { display: flex; align-items: center; justify-content: space-between; padding: 8px 6px; border-top: 1px solid #e2e6df; flex-shrink: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
 .library-selection-note { padding: 8px 12px; background: #f7f1df; color: #725b2b; font-size: 12px; }
 .library-empty { padding: 24px 12px; text-align: center; font-size: 13px; color: #5b665f; }
+
+.signin-page { min-height: 100%; overflow: auto; background: #f6f3eb; padding: clamp(20px, 4vw, 64px); display: grid; place-items: center; }
+.signin-shell { width: 100%; max-width: 1180px; min-height: min(720px, calc(100dvh - 100px)); display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
+.signin-copy { display: flex; flex-direction: column; padding: 12px 0; }
+.signin-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: #284a38; font-size: 23px; font-weight: 800; letter-spacing: -.8px; }
+.signin-welcome { margin: auto 0; padding: 52px 0; max-width: 430px; }
+.signin-eyebrow { color: #68775e; font-size: 11px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; }
+.signin-welcome h1 { font-family: Georgia, serif; font-weight: 400; color: #263e2e; font-size: clamp(44px, 5.4vw, 72px); line-height: 1.06; letter-spacing: -2.5px; margin: 20px 0; }
+.signin-welcome p { color: #657065; font-size: 16px; line-height: 1.8; margin: 0 0 30px; }
+.signin-button.MuiButton-root { margin-top: 12px; display: flex; gap: 14px; min-height: 54px; width: 100%; border-radius: 12px; font-size: 15px; }
+.signin-button > span:last-child { margin-left: auto; }
+.signin-google { background: white; color: #315a46; border-radius: 50%; width: 25px; height: 25px; display: grid; place-items: center; font-weight: 800; }
+.signin-invite { margin-top: 16px; font-size: 12px; color: #73806e; text-align: center; }
+.signin-footer { font-size: 12px; color: #798271; }
+.signin-photo { margin: 0; min-height: 580px; position: relative; overflow: hidden; border-radius: 140px 24px 24px 24px; background: #c9c5b1; }
+.signin-photo > img { position: absolute; width: 100%; height: 100%; object-fit: cover; object-position: 44% center; }
+.signin-photo::after { content: ''; position: absolute; inset: 45% 0 0; background: linear-gradient(transparent, #172b20a6); }
+.signin-photo figcaption { position: absolute; z-index: 1; bottom: 36px; left: 32px; color: #fffdf5; display: grid; gap: 18px; font-family: Georgia, serif; font-size: 30px; line-height: 1.2; }
+.signin-photo-tag { font: 10px system-ui, sans-serif; text-transform: uppercase; letter-spacing: 1.7px; }
+@media(max-width: 700px) { .signin-shell { grid-template-columns: 1fr; gap: 24px; min-height: auto; } .signin-copy { padding: 0; } .signin-welcome { max-width: none; padding: 36px 0 26px; } .signin-welcome h1 { font-size: 49px; } .signin-photo { min-height: 280px; border-radius: 72px 20px 20px 20px; } .signin-photo > img { object-position: center 58%; } .signin-photo figcaption { bottom: 22px; font-size: 24px; } .signin-footer { font-size: 11px; } }
