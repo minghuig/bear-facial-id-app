@@ -1,0 +1,43 @@
+# Combine with compose.yaml; independent project and volumes preserve the mock stack.
+name: only-bears-local-cpu
+x-real-worker: &real-worker
+  env_file: .env.local-real
+  environment:
+    API_URL: http://api:8000
+    MODE: real
+    MODEL_DIR: /models
+    WORKER_LOCK: /locks/inference.lock
+    AWS_EC2_METADATA_DISABLED: 'true'
+    OMP_NUM_THREADS: '2'
+    MKL_NUM_THREADS: '2'
+  volumes:
+    - ${LOCAL_MODELS_DIR:?Run scripts/local_real.py first}:/models:ro
+    - inference-locks:/locks
+  depends_on:
+    api: {condition: service_started}
+    init-locks: {condition: service_completed_successfully}
+  restart: unless-stopped
+services:
+  migrate:
+    env_file: !override [.env.local-real]
+  api:
+    image: only-bears-local-cpu-api
+    env_file: !override [.env.local-real]
+    ports: !override ['127.0.0.1:18000:8000']
+  mock-worker:
+    profiles: [mock-only]
+  init-locks:
+    image: only-bears-local-cpu-api
+    user: '0'
+    command: ['python', '-c', 'import os; os.chmod("/locks", 0o777)']
+    volumes: [inference-locks:/locks]
+  detector:
+    <<: *real-worker
+    image: only-bears-local-cpu-detector
+    build: {context: ., dockerfile: workers/Dockerfile.detector}
+  recognition:
+    <<: *real-worker
+    image: only-bears-local-cpu-recognition
+    build: {context: ., dockerfile: workers/Dockerfile.recognition}
+volumes:
+  inference-locks:
