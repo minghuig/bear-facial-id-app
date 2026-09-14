@@ -7,8 +7,8 @@ Branch: codex/comparison-prototype. This is a separate frontend entry; the exist
 ## Try these flows
 
 1. Compare Cedar and Unnamed bear 07 alongside Sighting B. Click thumbnails, Next/Previous or View all 7 photos. Enlarge the current/reference pair, or compare the candidates with each other. Up to three candidate columns are supported. On narrow screens panels stack.
-2. Select B, C, D and E under Which sightings belong in this assignment; choose New unnamed bear and Review assignment. Inspect all five photographs. Remove D if uncertain, then simulate creation: A/B/C/E appear in Unnamed bear 08, while D stays separate.
-3. Reset demo. Choose Use this bear record on Cedar (or select any existing bear in the destination menu), optionally include unassigned sightings, then Review assignment. All seven existing photos appear alongside exactly the additions. Simulation adds those photos only to that record.
+2. Select B, C, D and E in the top Select photos to identify together section; choose New unnamed bear and Review & confirm. Inspect all five photographs. Remove D if uncertain, then simulate creation: A/B/C/E appear in Unnamed bear 08, while D stays separate.
+3. Reset demo. Choose Choose Cedar (or select any existing bear in the destination menu), optionally include unassigned sightings, then Review & confirm. All seven existing photos appear alongside exactly the additions. Simulation adds those photos only to that record.
 4. Undo an assignment even after dismissing its notice. Keep unassigned records a visible simulated review without assigning an identity. Reset demo restores all fixtures and clears search/filter/draft.
 
 ## Run or recreate
@@ -38,7 +38,7 @@ node --experimental-strip-types --test tests/comparison.test.ts
 npm.cmd run build
 ```
 
-Four model tests cover selected unassigned IDs, duplicate elimination, prevention of existing-identity merging, and valid destinations. They were observed failing before implementation, then passing.
+Five model tests cover selected unassigned IDs, duplicate elimination, prevention of existing-identity merging, valid destinations, and descending nonmutating similarity ranking. They were observed failing before implementation, then passing.
 
 Browser QA on the dedicated local preview verified:
 - All seven Cedar photos in complete gallery; choosing photo 7 updates the comparison.
@@ -51,3 +51,9 @@ Browser QA on the dedicated local preview verified:
 - No console warnings/errors captured during these flows.
 
 Independent code review identified stale indices after undo and a dismissible undo control. Both were fixed and the exact browser regression was exercised. Prototype quality does not establish model accuracy or production assignment durability.
+
+## Compact revision
+
+The selection strip and Identify as / Review & confirm controls now lead the page, followed immediately by similarity-ranked candidates and compact comparison panels. Candidate actions say Choose [bear] and Add this photo to selection. The old enlarged-candidate button is removed; clicking images opens inspection, and Full screen expands the whole current comparison. Demo scores are synthetic cosine-style values, clearly labeled, descending; they are not model results or identity probabilities.
+
+Revised browser QA: at the default 1252x873 viewport, the selection block ends at y224; all three comparison candidates and their controls fit on the page. A+B with Choose Cedar still yields seven existing references plus exactly two additions in final review. Full screen contains current A and all three selected candidates. Sorting observed B .936, C .912, E .887, Unnamed07 .834, D .821, Cedar .786, Willow .744. Temporary viewport override was reset. Initial JSX punctuation error during editing was fixed; subsequent TypeScript/Vite build passed. Independent follow-up review found no actionable regressions.

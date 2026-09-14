@@ -1,5 +1,8 @@
 export type Photo = { id: string; src: string; label: string };
-export type Candidate = { id: string; label: string; kind: 'bear' | 'sighting'; photos: Photo[] };
+export type Candidate = { id: string; label: string; kind: 'bear' | 'sighting'; photos: Photo[]; similarity?: number };
+export function sortCandidates(candidates: Candidate[]): Candidate[] {
+  return [...candidates].sort((a,b)=>(b.similarity ?? -Infinity)-(a.similarity ?? -Infinity));
+}
 export function buildAssignment(current: string, selected: string[], destination: string, candidates: Candidate[]): {destination:string;sightingIds:string[]} {
   if (destination !== 'new' && !candidates.some(c=>c.id===destination && c.kind==='bear')) throw new Error('Choose a bear destination');
   const sightingIds = [...new Set([current, ...selected])];

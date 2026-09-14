@@ -18,3 +18,10 @@ test('destination must be an existing bear or explicitly new',()=>{
   assert.throws(()=>buildAssignment('a',[],'b',candidates),/destination/);
   assert.throws(()=>buildAssignment('a',[],'',candidates),/destination/);
 });
+
+test('similarity ranking is descending, preserves source order, and puts missing scores last', async()=>{
+  const {sortCandidates}=await import('../src/comparison/model.ts');
+  const list=[{...candidates[0],similarity:.4},{...candidates[1],similarity:.9},{...candidates[0],id:'no-score'}];
+  assert.deepEqual(sortCandidates(list).map(c=>c.id),['b','known','no-score']);
+  assert.deepEqual(list.map(c=>c.id),['known','b','no-score']);
+});
