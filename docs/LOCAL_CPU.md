@@ -1,0 +1,25 @@
+# Local CPU branch
+
+This branch supports real inference on the local machine using Docker Desktop's Linux x86 containers. The owner explicitly authorized this local alternative. AWS remains available separately; the AWS-only regression command still requires AWS identity.
+
+Put the three trusted checkpoint files in `.private/models/`, or pass an existing directory. Nothing under `.private/` is committed. Prepare the local settings:
+
+```sh
+python scripts/local_real.py --models /path/to/checkpoints
+```
+
+Then run from this worktree (Compose 2.24.4 or newer):
+
+```sh
+docker compose --env-file .env.local-real -f compose.yaml -f compose.local-real.yaml build api
+docker compose --env-file .env.local-real -f compose.yaml -f compose.local-real.yaml build detector
+docker compose --env-file .env.local-real -f compose.yaml -f compose.local-real.yaml build recognition
+docker compose --env-file .env.local-real -f compose.yaml -f compose.local-real.yaml up -d
+cd frontend
+npm ci
+npm run dev
+```
+
+Open **http://localhost:5174**. The local API uses **127.0.0.1:18000**. PostgreSQL and MinIO use private project volumes; no AWS credentials, S3 calls or cloud runtime are needed. The separate project name keeps AWS and existing mock data untouched. Real workers share a lock and run one model job at a time. Docker needs enough memory for model loading; this machine's Docker allocation is checked during the smoke test.
+
+Use the same Compose flags with `logs --tail 50 api detector recognition` for diagnostics, or `stop` to pause the stack. Do not use `down -v` unless you intend to delete local data. Re-run the preparation command after adapter changes; it updates the pipeline while preserving existing local credentials. Checkpoint hashes are checked during preparation and again before each model loads.
