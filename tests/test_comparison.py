@@ -15,14 +15,14 @@ def unit(x):
 
 
 def seed_head(db, *, filename, embedding=VECTOR, state='unresolved', bear=None,
-              pipeline='mock-v1', photo=None, index=0):
+              pipeline='mock-v1', photo=None, index=0, org_id='internal-testing'):
     if photo is None:
-        batch = Batch(); db.add(batch); db.flush()
-        photo = Photo(batch_id=batch.id, sha256=uuid.uuid4().hex, filename=filename,
+        batch = Batch(org_id=org_id); db.add(batch); db.flush()
+        photo = Photo(org_id=org_id, batch_id=batch.id, sha256=uuid.uuid4().hex, filename=filename,
             original_key=f'photos/{filename}', oriented_key=f'oriented/{filename}',
             width=100, height=80, detection_state='complete', pipeline=pipeline)
         db.add(photo); db.flush()
-    head = Observation(photo_id=photo.id, index=index, box=[1,2,30,40],
+    head = Observation(org_id=org_id, photo_id=photo.id, index=index, box=[1,2,30,40],
         crop_key=f'crops/{filename}/{index}', pipeline=pipeline,
         recognition_state='complete', review_state=state,
         bear_id=bear.id if bear else None, embedding=embedding)
@@ -287,3 +287,50 @@ def test_undo_refuses_a_later_review(api, edited):
     with factory() as db:
         assert db.get(Observation, source.id).bear_id == bear_id
         assert db.get(Observation, reference.id).bear_id == bear_id
+
+
+def test_comparison_reads_matches_and_undo_stay_in_active_organization(api, monkeypatch):
+    from test_accounts import login
+
+    client, factory, _ = login(api, monkeypatch)
+    with factory.begin() as db:
+        internal_source = seed_head(db, filename='internal-source.jpg')
+        internal_reference = seed_head(db, filename='internal-reference.jpg', embedding=unit(.8))
+        mcneil_source = seed_head(db, filename='mcneil-source.jpg', org_id='mcneil')
+        mcneil_reference = seed_head(db, filename='mcneil-reference.jpg', embedding=unit(.99),
+            org_id='mcneil')
+
+    internal = client.get(f'/api/heads/{internal_source.id}/matches')
+    assert internal.status_code == 200, internal.text
+    assert [candidate['reference_id'] for candidate in internal.json()['candidates']] == [
+        internal_reference.id]
+    cross_match = client.post(f'/api/heads/{internal_source.id}/match', json={
+        'reference_id': mcneil_reference.id,
+        'expected_bear_id': None,
+        'expected_review_state': 'unresolved',
+        'expected_reference_bear_id': None,
+    })
+    assert cross_match.status_code == 404
+    matched = client.post(f'/api/heads/{internal_source.id}/match', json={
+        'reference_id': internal_reference.id,
+        'expected_bear_id': None,
+        'expected_review_state': 'unresolved',
+        'expected_reference_bear_id': None,
+    })
+    assert matched.status_code == 200, matched.text
+
+    assert client.post('/api/session/organization', json={'org_id':'mcneil'}).status_code == 200
+    client.headers['x-organization-id'] = 'mcneil'
+    assert client.get(f'/api/heads/{internal_source.id}/matches').status_code == 404
+    assert client.post(f'/api/heads/{internal_source.id}/undo-match',
+        json=matched.json()['undo']).status_code == 404
+    mcneil = client.get(f'/api/heads/{mcneil_source.id}/matches')
+    assert mcneil.status_code == 200, mcneil.text
+    assert [candidate['reference_id'] for candidate in mcneil.json()['candidates']] == [
+        mcneil_reference.id]
+
+    with factory() as db:
+        assert db.get(Observation, internal_source.id).bear_id == matched.json()['head']['bear_id']
+        assert db.get(Observation, mcneil_source.id).bear_id is None
+        assert db.get(Gallery, 1).revision == 1
+        assert db.get(Gallery, 2).revision == 0

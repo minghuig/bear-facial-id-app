@@ -83,3 +83,24 @@ def test_candidates_include_unassigned_sightings_and_preserve_snapshot_compatibi
         gallery = Gallery(id=1, revision=4); db.add(gallery)
         saved = snapshot(db, query, gallery)
         assert saved.candidates == live
+
+
+def test_candidates_scope_worker_reads_to_query_organization():
+    engine = create_engine('sqlite://')
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        def head(org_id, sha, embedding):
+            batch = Batch(org_id=org_id); db.add(batch); db.flush()
+            photo = Photo(org_id=org_id, batch_id=batch.id, sha256=sha, filename=f'{sha}.jpg',
+                original_key='x', oriented_key='x', width=100, height=100, pipeline='mock-v1')
+            db.add(photo); db.flush()
+            observation = Observation(org_id=org_id, photo_id=photo.id, index=0, box=[0,0,1,1],
+                crop_key='x', pipeline='mock-v1', review_state='unresolved', bear_id=None,
+                embedding=embedding, recognition_state='complete')
+            db.add(observation); db.flush(); return observation
+
+        query = head('internal-testing', 'query', V)
+        local = head('internal-testing', 'local', [.8,.6]+[0.0]*510)
+        head('other-organization', 'closer-cross-org', V)
+
+        assert [candidate['reference_id'] for candidate in candidates(db, query)] == [local.id]

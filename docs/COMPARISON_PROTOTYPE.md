@@ -31,3 +31,9 @@ python scripts/prepare_comparison.py 'C:/Users/zFlei/repos/bear-facial-id-app/.p
 - Independent review identified stale snapshot after undo and reordered similarity strip. Both fixed and exact browser paths verified.
 
 Source is retained only on codex/comparison-prototype. No merge/deployment/production writes.
+
+## Live integration
+
+The main app now opens the same simple comparison flow using live recognition candidates. Eligible unidentified sightings appear alongside known identities, ordered by similarity; each known candidate exposes its full confirmed gallery. Confirmation writes a reviewed identity. Change identity moves only the current sighting, with guarded Undo based on saved review history. All access retains the deployed organization and sign-in boundaries. Demo comparison.html remains a local Vite prototype and is excluded from the production build.
+
+Follow-up BEAR-32: after initial release, confirmation should automatically return to the library with Undo.
