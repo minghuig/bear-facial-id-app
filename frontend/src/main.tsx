@@ -105,7 +105,7 @@ function App(){
          <Typography variant="body2" color="text.secondary">Ignore cubs or unusable crops first. Recognition runs only when requested.</Typography>
          <Button disabled={busy||!detail.data.heads.some(h=>['not_requested','failed'].includes(h.recognition_state)&&!['ignored','unusable'].includes(h.review_state))} variant="contained" onClick={()=>act(()=>api(`/api/photos/${selected}/recognize`,'POST'))}>Run recognition</Button>
         </div>}
-        {detail.data.jobs.filter(j=>j.error&&j.state!=='superseded').map(j=><Alert key={j.id} severity={j.state==='failed'?'error':'warning'}>{j.stage}: {j.error} (attempts: {j.attempts}, {j.state}) {j.state==='failed'&&j.stage==='detection'&&<Button disabled={busy} onClick={()=>act(()=>api(`/api/jobs/${j.id}/retry`,'POST'))}>Retry detection</Button>}</Alert>)}
+        {detail.data.jobs.filter(j=>j.error&&j.state!=='superseded'&&!(j.stage==='detection'&&detail.data.detection_state==='complete')).map(j=><Alert key={j.id} severity={j.state==='failed'?'error':'warning'}>{j.stage}: {j.error} (attempts: {j.attempts}, {j.state}) {j.state==='failed'&&j.stage==='detection'&&<Button disabled={busy} onClick={()=>act(()=>api(`/api/jobs/${j.id}/retry`,'POST'))}>Retry detection</Button>}</Alert>)}
        </div>
        {head&&<Card className="review-panel"><CardContent sx={{p:2,'&:last-child':{pb:2}}}><Stack spacing={1.5}>
         <div className="head-navigation"><Button disabled={index===0} onClick={()=>{setIndex(index-1);setBearChoice('');}}>Previous</Button><Typography component="h3" variant="subtitle2">Head {index+1} of {detail.data.heads.length}</Typography><Button disabled={index===detail.data.heads.length-1} onClick={()=>{setIndex(index+1);setBearChoice('');}}>Next</Button></div>
