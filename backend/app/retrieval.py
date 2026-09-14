@@ -8,22 +8,38 @@ def vector(value):
         raise ValueError('Expected finite, nonzero, L2-normalized 512-dimensional embedding')
     return a
 
-def snapshot(db, query, gallery):
+def candidates(db, query):
     q = vector(query.embedding)
     refs = db.scalars(select(Observation).where(
-        Observation.review_state == 'confirmed', Observation.bear_id.is_not(None),
+        Observation.review_state.in_(['confirmed', 'unresolved']),
         Observation.pipeline == query.pipeline, Observation.photo_id != query.photo_id,
         Observation.id != query.id, Observation.embedding.is_not(None))).all()
     best = {}
     for ref in refs:
+        known = ref.review_state == 'confirmed' and ref.bear_id is not None
+        unknown = ref.review_state == 'unresolved' and ref.bear_id is None
+        if not known and not unknown:
+            continue
         try: score = float(np.clip(q @ vector(ref.embedding), -1, 1))
         except (ValueError, TypeError): continue
-        candidate = {'bear_id':ref.bear_id, 'name':db.get(Bear, ref.bear_id).name,
-                     'reference_id':ref.id, 'cosine':score}
-        if ref.bear_id not in best or score > best[ref.bear_id]['cosine']:
-            best[ref.bear_id] = candidate
+        if known:
+            bear = db.get(Bear, ref.bear_id)
+            if bear is None:
+                continue
+            key = ('bear', ref.bear_id)
+            candidate = {'kind':'bear', 'id':ref.bear_id, 'bear_id':ref.bear_id,
+                         'name':bear.name, 'reference_id':ref.id, 'cosine':score}
+        else:
+            key = ('sighting', ref.id)
+            candidate = {'kind':'sighting', 'id':ref.id, 'bear_id':None, 'name':None,
+                         'reference_id':ref.id, 'cosine':score}
+        if key not in best or score > best[key]['cosine']:
+            best[key] = candidate
+    return sorted(best.values(), key=lambda c: (-c['cosine'], c['kind'], c['id']))
+
+def snapshot(db, query, gallery):
     row = Suggestion(observation_id=query.id, pipeline=query.pipeline,
                      gallery_revision=gallery.revision,
-                     candidates=sorted(best.values(), key=lambda c: (-c['cosine'], c['bear_id']))[:5])
+                     candidates=candidates(db, query)[:5])
     db.add(row)
     return row

@@ -15,10 +15,10 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import session
 from .models import Batch, Photo, Observation, Bear, Review, Gallery, Suggestion, Job, Attempt, now, uid
-from .contracts import Claim, Lease, Result, ReviewInput, BearInput
+from .contracts import Claim, Lease, Result, ReviewInput, MatchInput, UndoMatchInput, BearInput
 from . import storage, previews
 from .photo_status import status as photo_status
-from .retrieval import snapshot, vector
+from .retrieval import candidates, snapshot, vector
 
 s = settings()
 app = FastAPI(title='Only Bears')
@@ -166,6 +166,130 @@ def history(head_id: str, db: DB):
     need(db,Observation,head_id)
     return [dict(id=r.id,state=r.state,bear_id=r.bear_id,created_at=r.created_at) for r in
             db.scalars(select(Review).where(Review.observation_id == head_id).order_by(Review.created_at)).all()]
+
+def comparison_photo(db, observation):
+    photo = need(db, Photo, observation.photo_id)
+    return {'id':observation.id,
+            'src':f'/api/heads/{observation.id}/image?variant=preview-v1',
+            'label':photo.filename}
+
+@app.get('/api/heads/{head_id}/matches')
+def matches(head_id: str, db: DB):
+    query = need(db, Observation, head_id)
+    result = []
+    for candidate in candidates(db, query):
+        reference = need(db, Observation, candidate['reference_id'])
+        if candidate['kind'] == 'bear':
+            gallery = db.scalars(select(Observation).where(
+                Observation.bear_id == candidate['bear_id'],
+                Observation.review_state == 'confirmed',
+                Observation.photo_id != query.photo_id)
+                .order_by(Observation.created_at, Observation.id)).all()
+            gallery = [reference] + [photo for photo in gallery if photo.id != reference.id]
+            label = candidate['name'] or f"Unnamed bear · {candidate['id'][:8]}"
+        else:
+            gallery = [reference]
+            label = f"Unidentified sighting · {candidate['id'][:8]}"
+        result.append({'id':candidate['id'], 'label':label, 'kind':candidate['kind'],
+                       'similarity':candidate['cosine'],
+                       'reference_id':candidate['reference_id'],
+                       'bear_id':candidate['bear_id'],
+                       'photos':[comparison_photo(db, photo) for photo in gallery]})
+    return {'head':{'id':query.id, 'review_state':query.review_state,
+                    'bear_id':query.bear_id, 'crop_url':f'/api/heads/{query.id}/image?variant=preview-v1'},
+            'candidates':result}
+
+def matchable(observation):
+    return ((observation.review_state == 'confirmed' and observation.bear_id is not None) or
+            (observation.review_state == 'unresolved' and observation.bear_id is None))
+
+@app.post('/api/heads/{head_id}/match')
+def match(head_id: str, body: MatchInput, db: DB):
+    gallery = lock_gallery(db)
+    source = need(db, Observation, head_id)
+    reference = need(db, Observation, body.reference_id)
+    if (source.review_state != body.expected_review_state or
+            source.bear_id != body.expected_bear_id):
+        raise HTTPException(409, 'Sighting changed; refresh before confirming')
+    if reference.bear_id != body.expected_reference_bear_id:
+        raise HTTPException(409, 'Match changed; refresh before confirming')
+    if source.id == reference.id or source.photo_id == reference.photo_id:
+        raise HTTPException(409, 'A sighting cannot match the same original photo')
+    if not matchable(source) or not matchable(reference):
+        raise HTTPException(409, 'Sighting is not eligible for matching')
+    if source.pipeline != reference.pipeline:
+        raise HTTPException(409, 'Match uses an incompatible recognition pipeline')
+    try:
+        vector(source.embedding); vector(reference.embedding)
+    except (ValueError, TypeError):
+        raise HTTPException(409, 'Match has an incompatible embedding')
+
+    reference_review = None
+    if reference.review_state == 'confirmed':
+        destination_id = reference.bear_id
+        need(db, Bear, destination_id)
+    else:
+        destination = Bear(name=None); db.add(destination); db.flush()
+        destination_id = destination.id
+        reference.review_state = 'confirmed'; reference.bear_id = destination_id
+        reference_review = Review(observation_id=reference.id, state='confirmed', bear_id=destination_id)
+
+    source.review_state = 'confirmed'; source.bear_id = destination_id
+    source_review = Review(observation_id=source.id, state='confirmed', bear_id=destination_id)
+    db.add(source_review)
+    if reference_review is not None:
+        db.add(reference_review)
+    gallery.revision += 1
+    db.flush()
+    undo = {'head_review_id':source_review.id,
+            'reference_review_id':reference_review.id if reference_review else None}
+    db.commit()
+    return {'head':head_json(db, source), 'undo':undo}
+
+def review_history(db, observation_id):
+    return db.scalars(select(Review).where(Review.observation_id == observation_id)
+        .order_by(Review.created_at.desc(), Review.id.desc())).all()
+
+def prior_review(history):
+    return (history[1].state, history[1].bear_id) if len(history) > 1 else ('unresolved', None)
+
+@app.post('/api/heads/{head_id}/undo-match')
+def undo_match(head_id: str, body: UndoMatchInput, db: DB):
+    gallery = lock_gallery(db)
+    source = need(db, Observation, head_id)
+    source_event = db.get(Review, body.head_review_id)
+    source_history = review_history(db, source.id)
+    if (source_event is None or source_event.observation_id != source.id or
+            not source_history or source_history[0].id != source_event.id or
+            source_event.state != 'confirmed' or source_event.bear_id is None or
+            source.review_state != source_event.state or source.bear_id != source_event.bear_id):
+        raise HTTPException(409, 'Match can no longer be undone')
+
+    reference = None
+    reference_history = []
+    if body.reference_review_id is not None:
+        reference_event = db.get(Review, body.reference_review_id)
+        if reference_event is None:
+            raise HTTPException(409, 'Match can no longer be undone')
+        reference = need(db, Observation, reference_event.observation_id)
+        reference_history = review_history(db, reference.id)
+        if (reference.id == source.id or not reference_history or
+                reference_history[0].id != reference_event.id or
+                reference_event.state != 'confirmed' or
+                reference_event.bear_id != source_event.bear_id or
+                reference.review_state != reference_event.state or
+                reference.bear_id != reference_event.bear_id):
+            raise HTTPException(409, 'Match can no longer be undone')
+
+    source.review_state, source.bear_id = prior_review(source_history)
+    db.add(Review(observation_id=source.id, state=source.review_state, bear_id=source.bear_id))
+    if reference is not None:
+        reference.review_state, reference.bear_id = prior_review(reference_history)
+        db.add(Review(observation_id=reference.id, state=reference.review_state,
+                      bear_id=reference.bear_id))
+    gallery.revision += 1
+    db.commit()
+    return head_json(db, source)
 
 @app.post('/api/heads/{head_id}/refresh')
 def refresh(head_id: str, db: DB):
@@ -319,7 +443,7 @@ def result(job_id: str, body: Result, db: DB):
                 o.pipeline = job.pipeline
                 o.embedding = h.embedding; o.diagnostics = {**h.diagnostics,'provenance':body.provenance}
                 o.recognition_state = 'complete'; o.error = None
-                if o.review_state == 'confirmed': gallery.revision += 1
+                if matchable(o): gallery.revision += 1
                 snapshot(db,o,gallery)
             except (ValueError,TypeError) as e:
                 o.recognition_state = 'failed'; o.error = str(e)[:2000]

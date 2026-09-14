@@ -27,5 +27,13 @@ class Lease(Contract):
 class ReviewInput(Contract):
     state: Literal['confirmed', 'unresolved', 'ignored', 'unusable']
     bear_id: str | None = None
+class MatchInput(Contract):
+    reference_id: str
+    expected_bear_id: str | None
+    expected_review_state: Literal['confirmed', 'unresolved', 'ignored', 'unusable']
+    expected_reference_bear_id: str | None
+class UndoMatchInput(Contract):
+    head_review_id: str
+    reference_review_id: str | None
 class BearInput(Contract):
     name: str | None = Field(default=None, max_length=120)

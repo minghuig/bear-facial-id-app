@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from app.models import Base, Batch, Photo, Observation, Bear, Gallery
-from app.retrieval import snapshot, vector
+from app.retrieval import candidates, snapshot, vector
 
 V = [1.0] + [0.0] * 511
 
@@ -48,3 +48,38 @@ def test_eligibility_distinct_bears_and_best_reference():
         for i in range(5):
             b = Bear(name='extra'); db.add(b); db.flush(); head(other_photo, 8+i, b)
         assert len(snapshot(db, query, gallery).candidates) == 5
+
+
+def test_candidates_include_unassigned_sightings_and_preserve_snapshot_compatibility():
+    engine = create_engine('sqlite://')
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        batch = Batch(); db.add(batch); db.flush()
+        def photo(n):
+            p = Photo(batch_id=batch.id, sha256=str(n), filename=f'{n}.jpg', original_key='x',
+                oriented_key='x', width=100, height=100, pipeline='mock-v1')
+            db.add(p); db.flush(); return p
+        query_photo, known_photo, unknown_photo = photo(1), photo(2), photo(3)
+        bear = Bear(name='Cedar'); db.add(bear); db.flush()
+        query = Observation(photo_id=query_photo.id, index=0, box=[0,0,1,1], crop_key='q',
+            pipeline='mock-v1', review_state='unresolved', bear_id=None, embedding=V,
+            recognition_state='complete')
+        known = Observation(photo_id=known_photo.id, index=0, box=[0,0,1,1], crop_key='known',
+            pipeline='mock-v1', review_state='confirmed', bear_id=bear.id, embedding=V,
+            recognition_state='complete')
+        unknown = Observation(photo_id=unknown_photo.id, index=0, box=[0,0,1,1], crop_key='unknown',
+            pipeline='mock-v1', review_state='unresolved', bear_id=None,
+            embedding=[.8,.6]+[0.0]*510, recognition_state='complete')
+        db.add_all([query, known, unknown]); db.flush()
+
+        live = candidates(db, query)
+        assert live == [
+            {'kind':'bear', 'id':bear.id, 'bear_id':bear.id, 'name':'Cedar',
+             'reference_id':known.id, 'cosine':1.0},
+            {'kind':'sighting', 'id':unknown.id, 'bear_id':None, 'name':None,
+             'reference_id':unknown.id, 'cosine':.8},
+        ]
+
+        gallery = Gallery(id=1, revision=4); db.add(gallery)
+        saved = snapshot(db, query, gallery)
+        assert saved.candidates == live
