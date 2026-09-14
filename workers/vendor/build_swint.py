@@ -1,5 +1,4 @@
 from .backbones.swin_transformer import SwinTransformer
-from .backbones.swin_transformer_v2 import SwinTransformerV2
 import torch.nn as nn
 from .backbones.basics import *
 import timm
@@ -158,6 +157,7 @@ def get_swin_model(num_classes, cfg, logger, load_weights=True, device='cuda'):
             # model.load_state_dict(torch.load(cfg.MODEL.PRETRAIN_PATH))
 
     elif model_type == 'swinv2':
+        from .backbones.swin_transformer_v2 import SwinTransformerV2
         if cfg.MODEL.AGG_POSE_FEATURE:
             pose_model = get_hrnet_model(cfg, max_batch_size=64, device=device)
         else:
@@ -259,4 +259,3 @@ def load_pretrained(config, model, logger, device='cuda'):
 
     del checkpoint
     torch.cuda.empty_cache()
-
