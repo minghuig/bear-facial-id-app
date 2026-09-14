@@ -25,11 +25,12 @@ async function api<T>(path:string,method='GET',body?:unknown):Promise<T>{
 type Bear={id:string;name:string|null};
 type Candidate={bear_id:string;name:string|null;reference_id:string;cosine:number};
 type Head={id:string;index:number;box:number[];crop_url:string;recognition_state:string;review_state:string;bear_id:string|null;error:string|null;suggestions:{id:string;created_at:string;gallery_revision:number;candidates:Candidate[]}[]};
-type Photo={id:string;filename:string;image_url:string;thumbnail_url:string;width:number;height:number;detection_state:string;pipeline:string};
+type Photo={id:string;filename:string;image_url:string;thumbnail_url:string;width:number;height:number;detection_state:string;pipeline:string;status_label?:string};
 type Detail=Photo&{heads:Head[];jobs:{id:string;stage:string;state:string;error:string|null;attempts:number}[]};
 const label=(b:Bear)=>b.name||`Unnamed bear · ${b.id.slice(0,8)}`;
 function App(){
  const [tab,setTab]=useState(0),[selected,setSelected]=useState(''),[index,setIndex]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+ const [pendingUploads,setPendingUploads]=useState<{name:string;url:string}[]>([]);
  const [uploadCount,setUploadCount]=useState(0),[noticeSeverity,setNoticeSeverity]=useState<'success'|'warning'|'error'>('success');
  const [bearChoice,setBearChoice]=useState(''),[dialog,setDialog]=useState<'create'|'rename'|null>(null),[name,setName]=useState(''),[bearView,setBearView]=useState('');
  const health=useQuery({queryKey:['health'],queryFn:()=>api<{pipeline:string;commit:string;environment:string}>('/health')});
@@ -63,6 +64,7 @@ function App(){
        const files=Array.from(e.target.files||[]);e.target.value='';if(!files.length)return;
        if(files.length>20){setError('Select up to 20 photos at once.');return;}
        setNotice('');setUploadCount(files.length);
+       const pending=files.map(f=>({name:f.name,url:URL.createObjectURL(f)}));setPendingUploads(pending);
        void act(async()=>{
         const form=new FormData();files.forEach(f=>form.append('files',f));
         const result=await api<{photos:(Photo&{error?:string;duplicate?:boolean})[]}>('/api/photos','POST',form);
@@ -70,7 +72,7 @@ function App(){
         setNoticeSeverity(failures===0?'success':failures===result.photos.length?'error':'warning');
         setNotice(result.photos.map(p=>`${p.filename}: ${p.error||(p.duplicate?'already uploaded':'saved')}`).join('; '));
         const first=result.photos.find(p=>p.id);if(first){setSelected(first.id);setIndex(0);setBearChoice('');}
-       }).finally(()=>setUploadCount(0));
+       }).finally(()=>{setUploadCount(0);setPendingUploads([]);pending.forEach(p=>URL.revokeObjectURL(p.url));});
       }}/>
      </Button>}
     </div>
@@ -79,9 +81,10 @@ function App(){
      <aside className="collection-list" aria-label="Photos">
       <div className="section-label">Photos <span>{photos.data?.length??0}</span></div>
       <div className="collection-items">
+       {pendingUploads.map(p=><div key={p.url} className="collection-item" aria-busy="true"><img src={p.url} alt=""/><span className="item-copy"><span className="item-name">{p.name}</span><span className="item-state">Uploading…</span></span><CircularProgress size={16}/></div>)}
        {photos.data?.map(p=><button type="button" key={p.id} className="collection-item" aria-current={selected===p.id?'true':undefined} onClick={()=>{setSelected(p.id);setIndex(0);setBearChoice('');}}>
         <img src={p.thumbnail_url} alt="" loading="lazy" decoding="async"/>
-        <span className="item-copy"><span className="item-name" title={p.filename}>{p.filename}</span><span className="item-state">{p.detection_state==='complete'?'Ready to review':p.detection_state.replaceAll('_',' ')}</span></span>
+        <span className="item-copy"><span className="item-name" title={p.filename}>{p.filename}</span><span className="item-state">{p.status_label||(p.detection_state==='complete'?'Ready to Review':p.detection_state==='failed'?'Detection failed':'Detecting Bears…')}</span></span>
        </button>)}
       </div>
       {!photos.data?.length&&<p className="muted">{photos.isPending?'Loading photos…':'Upload a JPEG or PNG to begin.'}</p>}
@@ -114,7 +117,7 @@ function App(){
          <div><Chip size="small" variant="outlined" label={head.review_state.replaceAll('_',' ')}/><Typography variant="body2" color="text.secondary" sx={{mt:1}}>Recognition: {head.recognition_state==='not_requested'?'not run':head.recognition_state.replaceAll('_',' ')}</Typography>{head.bear_id&&<Typography variant="body2" sx={{mt:.5,overflowWrap:'anywhere'}}>{label(bears.data?.find(b=>b.id===head.bear_id)||{id:head.bear_id,name:null})}</Typography>}</div>
         </div>
         {head.error&&<Alert severity="error">{head.error}. Run recognition again to retry this eligible head.</Alert>}
-        <Stack direction="row" spacing={.5} useFlexGap flexWrap="wrap">{['unresolved','ignored','unusable'].map(state=><Button key={state} disabled={busy} onClick={()=>review(state)}>{state==='unresolved'?'Leave unresolved':state==='ignored'?'Ignore subject':'Mark unusable'}</Button>)}</Stack>
+        <Stack direction="row" spacing={.5} useFlexGap flexWrap="wrap">{['unresolved','ignored','unusable'].map(state=><Button key={state} disabled={busy} onClick={()=>review(state)}>{state==='unresolved'?'Leave unidentified':state==='ignored'?'Ignore subject':'Mark unusable'}</Button>)}</Stack>
         {head.recognition_state==='complete'&&<div className="panel-section">
          <div className="section-heading"><Typography component="h3" variant="subtitle2">Candidate bears</Typography><Button disabled={busy} onClick={()=>act(()=>api(`/api/heads/${head.id}/refresh`,'POST'))}>Refresh</Button></div>
          <Typography variant="body2" color="text.secondary">Similarity is not identity probability.</Typography>
@@ -136,7 +139,8 @@ function App(){
       </div>
      </section>}
     </div>:<div className="photo-workspace">
-     <aside className="collection-list" aria-label="Bears"><div className="section-label">Bears <span>{bears.data?.length??0}</span></div><div className="collection-items">{bears.data?.map(b=><button type="button" className="collection-item" key={b.id} aria-current={bearView===b.id?'true':undefined} onClick={()=>setBearView(b.id)}><span className="bear-avatar" aria-hidden="true">{(b.name||'?').slice(0,1).toUpperCase()}</span><span className="item-name">{label(b)}</span></button>)}</div>{!bears.data?.length&&<p className="muted">Create a bear while reviewing a head.</p>}</aside>
+     <aside className="collection-list" aria-label="Bears"><div className="section-label">Bears <span>{bears.data?.length??0}</span></div><div className="collection-items">
+       {pendingUploads.map(p=><div key={p.url} className="collection-item" aria-busy="true"><img src={p.url} alt=""/><span className="item-copy"><span className="item-name">{p.name}</span><span className="item-state">Uploading…</span></span><CircularProgress size={16}/></div>)}{bears.data?.map(b=><button type="button" className="collection-item" key={b.id} aria-current={bearView===b.id?'true':undefined} onClick={()=>setBearView(b.id)}><span className="bear-avatar" aria-hidden="true">{(b.name||'?').slice(0,1).toUpperCase()}</span><span className="item-name">{label(b)}</span></button>)}</div>{!bears.data?.length&&<p className="muted">Create a bear while reviewing a head.</p>}</aside>
      {bearView?<section className="reference-panel"><div className="section-heading"><Typography component="h2" variant="h6" sx={{overflowWrap:'anywhere'}}>{label(bears.data?.find(b=>b.id===bearView)||{id:bearView,name:null})}</Typography><Button onClick={()=>{setName(bears.data?.find(b=>b.id===bearView)?.name||'');setDialog('rename');}}>Edit name</Button></div><Typography variant="body2" color="text.secondary">Confirmed usable heads with valid embeddings become references.</Typography><div className="reference-grid">{refs.data?.map((h,i)=><img key={h.id} src={h.crop_url} alt={`Confirmed reference ${i+1}`}/>)}</div>{refs.error&&<Alert severity="error">{String(refs.error)}</Alert>}{refs.isPending?<Typography color="text.secondary">Loading references…</Typography>:!refs.data?.length&&!refs.error&&<Typography color="text.secondary">No eligible references for this bear yet.</Typography>}</section>:<div className="empty-state"><Typography component="h2" variant="h6">Select a bear to view references</Typography><Typography color="text.secondary">Bear identities stay the same when names change.</Typography></div>}
     </div>}
     <details className="compact-details workspace-help"><summary>How review works</summary><p>Upload JPEG or PNG photos, review each detected head, then run recognition on eligible heads. Confirming a usable head with a valid embedding creates a reference for later matching.</p><p>Leave uncertain heads unresolved. Matching quality is experimental; no identity is assigned automatically. Head detection uses oriented originals with no body detector or crop margin. One shared collection; bear IDs stay stable when names change.</p></details>

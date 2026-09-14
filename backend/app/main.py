@@ -17,6 +17,7 @@ from .db import session
 from .models import Batch, Photo, Observation, Bear, Review, Gallery, Suggestion, Job, Attempt, now, uid
 from .contracts import Claim, Lease, Result, ReviewInput, BearInput
 from . import storage, previews
+from .photo_status import status as photo_status
 from .retrieval import snapshot, vector
 
 s = settings()
@@ -64,7 +65,12 @@ def health(db: DB):
 
 @app.get('/api/photos')
 def photos(db: DB):
-    return [photo_json(p) for p in db.scalars(select(Photo).order_by(Photo.created_at.desc())).all()]
+    by_photo = {}
+    for head in db.scalars(select(Observation)).all():
+        by_photo.setdefault(head.photo_id, []).append(head)
+    reviewed_ids = set(db.scalars(select(Review.observation_id).distinct()).all())
+    return [{**photo_json(p), 'status_label': photo_status(p.detection_state, by_photo.get(p.id, []), reviewed_ids)}
+            for p in db.scalars(select(Photo).order_by(Photo.created_at.desc())).all()]
 
 @app.post('/api/photos')
 def upload(db: DB, files: Annotated[list[UploadFile], File()]):
