@@ -25,7 +25,7 @@ The recognition worker includes adapted PoseSwin code from the Mathis Lab’s of
 
 Each person signs in with their own invited Google account. Members of an organization share its photos, bears, and reviews with equal access. The hosted app has two separate libraries: **Internal Testing** and **McNeil**. Members of both can switch organizations in the app.
 
-This is an early hobby MVP. Photo deletion is still planned; backups and broader reliability testing are a later milestone. Do not treat the app as the only copy of original field photos.
+This is an early hobby MVP. Photos and bear identities can be deleted, but backups and broader reliability testing are a later milestone. Do not treat the app as the only copy of original field photos.
 
 ## Run locally
 

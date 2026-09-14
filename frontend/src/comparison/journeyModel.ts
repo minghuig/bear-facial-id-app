@@ -9,5 +9,5 @@ export function confirmSighting(state:Collection, current:Photo, match:Candidate
   return {records:records.map(r=>r.id===target?{...r,photos:[...r.photos,current]}:r),links:{...state.links,[current.id]:target}};
  }
  const id=`unnamed-${current.id}-${match.id}`;
- return {records:[...records,{id,label:`Unnamed bear ${state.records.length+1}`,kind:'bear',photos:[current,match.photos[0]]}],links:{...state.links,[current.id]:id,[match.photos[0].id]:id}};
+ return {records:[...records,{id,label:`Unknown bear ${state.records.length+1}`,kind:'bear',photos:[current,match.photos[0]]}],links:{...state.links,[current.id]:id,[match.photos[0].id]:id}};
 }

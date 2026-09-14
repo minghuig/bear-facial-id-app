@@ -5,7 +5,7 @@ import type {BrowserPhoto} from './photoBrowserModel';
 
 type Photo=BrowserPhoto&{thumbnail_url:string};
 type Bear={id:string;name:string|null};
-const bearLabel=(b:Bear)=>b.name||`Unnamed bear · ${b.id.slice(0,8)}`;
+const bearLabel=(b:Bear)=>b.name||`Unknown bear · ${b.id.slice(0,8)}`;
 export function PhotoBrowser({photos,bears,selected,onSelect,pending,loading}:{photos:Photo[];bears:Bear[];selected:string;onSelect:(id:string)=>void;pending:{name:string;url:string}[];loading:boolean}){
  const [query,setQuery]=useState(''),[status,setStatus]=useState('all'),[bear,setBear]=useState(''),[sort,setSort]=useState('newest'),[page,setPage]=useState(0);
  const list=useRef<HTMLDivElement>(null);

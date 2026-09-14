@@ -19,7 +19,8 @@ def api(monkeypatch):
     from sqlalchemy.orm import sessionmaker
     from fastapi.testclient import TestClient
     from app import main, storage
-    # Existing workflow tests exercise the supported manual pause mode.
+    # Most workflow tests exercise the supported manual mode. Automatic mode
+    # has focused coverage in test_auto_recognition.py.
     monkeypatch.setattr(main.s, 'auto_recognize', False)
     from app.db import session
     from app.models import Base, Gallery
@@ -46,6 +47,7 @@ def api(monkeypatch):
     monkeypatch.setattr(storage, 'get', lambda key: objects[key])
     monkeypatch.setattr(storage, 'get_optional', lambda key: objects.get(key))
     monkeypatch.setattr(storage, 'signed', lambda key: 'https://storage.invalid/' + key)
+    monkeypatch.setattr(storage, 'delete_many', lambda keys: [objects.pop(key, None) for key in keys])
     try:
         with TestClient(main.app) as client:
             yield client, factory, objects

@@ -49,6 +49,7 @@ def recognize(client, photo, heads):
 
 def test_pause_survives_new_sessions_and_duplicate_result(api):
     client, factory, objects = api
+    assert client.get('/api/status').json()['auto_recognize'] is False
     photo, heads, job = detect(client, boxes=[[1, 2, 40, 50, .9], [45, 3, 80, 60, .8]])
     assert len(heads) == 2
     assert claim(client, 'recognition') is None

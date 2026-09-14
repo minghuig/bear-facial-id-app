@@ -13,6 +13,15 @@ Variant = Literal['original', 'thumbnail-v1', 'preview-v1']
 SIZES = {'thumbnail-v1': 160, 'preview-v1': 1280}
 
 
+def derived_key(key: str, variant: str) -> str:
+    digest = hashlib.sha256(f'{key}:{variant}'.encode()).hexdigest()
+    return f'previews/{digest}/{variant}.jpg'
+
+
+def keys_for(source_key: str) -> list[str]:
+    return [derived_key(source_key, variant) for variant in SIZES]
+
+
 def jpeg(data: bytes, limit: int) -> bytes:
     with Image.open(io.BytesIO(data)) as image:
         image.thumbnail((limit, limit), Image.Resampling.LANCZOS)
@@ -31,9 +40,9 @@ def response(key: str, variant: Variant, if_none_match: str | None) -> Response:
         return Response(status_code=304, headers=headers)
     if variant == 'original':
         return Response(storage.get(key), media_type='image/png', headers=headers)
-    derived_key = f'previews/{digest}/{variant}.jpg'
-    data = storage.get_optional(derived_key)
+    preview_key = derived_key(key, variant)
+    data = storage.get_optional(preview_key)
     if data is None:
         data = jpeg(storage.get(key), SIZES[variant])
-        storage.put(derived_key, data, 'image/jpeg')
+        storage.put(preview_key, data, 'image/jpeg')
     return Response(data, media_type='image/jpeg', headers=headers)

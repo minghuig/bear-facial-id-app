@@ -110,6 +110,11 @@ resource "aws_iam_role_policy" "app" {
   policy = jsonencode({ Version = "2012-10-17", Statement = [
     { Effect = "Allow", Action = ["s3:ListBucket"], Resource = [aws_s3_bucket.app.arn] },
     { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = ["${aws_s3_bucket.app.arn}/*"] },
+    { Effect = "Allow", Action = ["s3:DeleteObject"], Resource = [
+      "${aws_s3_bucket.app.arn}/photos/*",
+      "${aws_s3_bucket.app.arn}/crops/*",
+      "${aws_s3_bucket.app.arn}/previews/*"
+    ] },
     { Effect = "Allow", Action = ["ecr:GetAuthorizationToken"], Resource = "*" },
     { Effect = "Allow", Action = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ecr:BatchCheckLayerAvailability", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:PutImage", "ecr:DescribeImages"], Resource = [for r in aws_ecr_repository.app : r.arn] },
     { Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = "${aws_cloudwatch_log_group.app.arn}:*" }

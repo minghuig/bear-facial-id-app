@@ -7,6 +7,7 @@ from test_workflow import detect, claim, submit, VECTOR
 def test_detection_queues_recognition_once_and_skips_ignored_heads(api, monkeypatch):
     client, factory, _ = api
     monkeypatch.setattr(main.s, 'auto_recognize', True)
+    assert client.get('/api/status').json()['auto_recognize'] is True
     photo, heads, detection = detect(client, boxes=[[1,2,40,50,.9],[45,3,80,60,.8]])
     assert all(h['recognition_state'] == 'queued' for h in heads)
     assert client.post(f"/api/photos/{photo['id']}/recognize").json() == {'queued':0}

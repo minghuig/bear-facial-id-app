@@ -18,7 +18,7 @@ export default function LiveComparison({headId,filename,bears,orgId,api,onBack,o
  const matches=[...(data?.candidates||[])].sort((a,b)=>b.similarity-a.similarity);
  const match=matches.find(m=>m.id===selected)||matches[0];
  const picture=match?.photos.find(p=>p.id===photoId)||match?.photos[0];
- const currentName=data?.head.bear_id?(bears.find(b=>b.id===data.head.bear_id)?.name||`Unnamed bear · ${data.head.bear_id.slice(0,8)}`):'Unidentified';
+ const currentName=data?.head.bear_id?(bears.find(b=>b.id===data.head.bear_id)?.name||`Unknown bear · ${data.head.bear_id.slice(0,8)}`):'Unidentified';
  async function confirm(){
   if(!pending)return;setBusy(true);setError('');
   try{const result=await request<{head:Head;undo:Undo}>(`/api/heads/${headId}/match`,{reference_id:pending.match.reference_id,expected_bear_id:pending.head.bear_id,expected_review_state:pending.head.review_state,expected_reference_bear_id:pending.match.bear_id});onConfirmed({headId,filename,undo:result.undo});}
@@ -41,6 +41,6 @@ export default function LiveComparison({headId,filename,bears,orgId,api,onBack,o
    <div className="lc-matches-heading"><h2>Similar sightings</h2><span>Highest similarity first</span></div>
    <div className="lc-matches">{matches.map(candidate=><button key={candidate.id} aria-label={`Compare ${candidate.label}`} aria-pressed={match?.id===candidate.id} onClick={()=>{setSelected(candidate.id);setPhotoId('');}}><img src={candidate.photos[0]?.src} alt="" loading="lazy"/><span><strong>{candidate.label}</strong><small>{candidate.photos.length} photos · {candidate.similarity.toFixed(3)}</small></span></button>)}</div>
   </>}
-  <Dialog open={!!pending} onClose={()=>{if(!busy)setPending(null);}} fullWidth maxWidth="xs"><DialogTitle>{pending?.head.bear_id?'Change this sighting’s identity?':'Confirm same bear?'}</DialogTitle><DialogContent><p>{pending?.head.bear_id&&`Remove only this sighting from ${currentName}. `}{pending?.match.kind==='bear'?`Add it to ${pending.match.label}.`:'Link these two sightings as one unnamed bear.'}</p><p>Other photos keep their current identities.</p>{error&&<Alert severity="error">{error}</Alert>}</DialogContent><DialogActions><Button disabled={busy} onClick={()=>setPending(null)}>Keep comparing</Button><Button variant="contained" disabled={busy} onClick={()=>void confirm()}>{busy?'Saving…':pending?.head.bear_id?'Confirm change':'Yes, same bear'}</Button></DialogActions></Dialog>
+  <Dialog open={!!pending} onClose={()=>{if(!busy)setPending(null);}} fullWidth maxWidth="xs"><DialogTitle>{pending?.head.bear_id?'Change this sighting’s identity?':'Confirm same bear?'}</DialogTitle><DialogContent><p>{pending?.head.bear_id&&`Remove only this sighting from ${currentName}. `}{pending?.match.kind==='bear'?`Add it to ${pending.match.label}.`:'Link these two sightings as one unknown bear.'}</p><p>Other photos keep their current identities.</p>{error&&<Alert severity="error">{error}</Alert>}</DialogContent><DialogActions><Button disabled={busy} onClick={()=>setPending(null)}>Keep comparing</Button><Button variant="contained" disabled={busy} onClick={()=>void confirm()}>{busy?'Saving…':pending?.head.bear_id?'Confirm change':'Yes, same bear'}</Button></DialogActions></Dialog>
  </section>;
 }

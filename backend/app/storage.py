@@ -9,6 +9,14 @@ def client():
                         config=Config(signature_version='s3v4', s3={'addressing_style': 'path'}))
 def put(key, data, content_type='image/png'):
     client().put_object(Bucket=settings().s3_bucket, Key=key, Body=data, ContentType=content_type)
+def delete_many(keys):
+    keys = list(dict.fromkeys(keys))
+    s3 = client()
+    for start in range(0, len(keys), 1000):
+        chunk = keys[start:start + 1000]
+        if chunk:
+            s3.delete_objects(Bucket=settings().s3_bucket,
+                              Delete={'Objects':[{'Key':key} for key in chunk], 'Quiet':True})
 def get(key):
     return client().get_object(Bucket=settings().s3_bucket, Key=key)['Body'].read()
 

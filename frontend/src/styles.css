@@ -28,7 +28,9 @@ button:focus-visible, summary:focus-visible { outline: 3px solid #407963; outlin
 .recognition-status { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid #cbded2; border-radius: 8px; background: #eef6f0; color: #315a46; }
 .recognition-status p { margin: 0; font-size: 12px; line-height: 1.5; }
 .recognition-status strong { display: block; font-size: 13px; margin-bottom: 3px; }
-.photo-heading { margin: 3px 0 16px; }
+.photo-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin: 3px 0 16px; }
+.photo-heading > div { min-width: 0; }
+.photo-heading > button { flex-shrink: 0; }
 .review-grid { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 20px; align-items: start; }
 .photo-stage { display: flex; justify-content: center; align-items: center; background: #e9ece6; border: 1px solid #dce2dc; border-radius: 8px; padding: 12px; min-height: 220px; }
 .photo-canvas { position: relative; max-width: 100%; }

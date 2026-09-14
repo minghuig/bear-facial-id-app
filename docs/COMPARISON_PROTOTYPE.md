@@ -20,7 +20,7 @@ From frontend: `npm.cmd run dev -- --port 5175 --strictPort`. Open `/comparison.
 To recreate ignored JPEG assets using Python with Pillow:
 
 ```powershell
-python scripts/prepare_comparison.py 'C:/Users/zFlei/repos/bear-facial-id-app/.private/test-data/bear-photos'
+python scripts/prepare_comparison.py '/path/to/bear-facial-id-app/.private/test-data/bear-photos'
 ```
 
 ## Verification

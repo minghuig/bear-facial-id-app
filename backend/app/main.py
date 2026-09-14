@@ -9,7 +9,7 @@ from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Header, R
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import select, or_, text
+from sqlalchemy import delete, select, or_, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from .config import settings
@@ -22,7 +22,7 @@ from .retrieval import candidates, snapshot, vector
 
 s = settings()
 app = FastAPI(title='Only Bears', docs_url=None if s.public_deployment else '/docs', redoc_url=None if s.public_deployment else '/redoc')
-app.add_middleware(CORSMiddleware, allow_origins=[s.cors_origin], allow_methods=['GET','POST','PATCH'], allow_headers=['Content-Type','X-CSRF-Token','X-Organization-ID'])
+app.add_middleware(CORSMiddleware, allow_origins=[s.cors_origin], allow_methods=['GET','POST','PATCH','DELETE'], allow_headers=['Content-Type','X-CSRF-Token','X-Organization-ID'])
 @app.middleware('http')
 async def restrict_browser_origin(request: Request, call_next):
     origin = request.headers.get('origin')
@@ -58,11 +58,30 @@ def head_json(db, o):
                 suggestions=[dict(id=x.id, pipeline=x.pipeline, gallery_revision=x.gallery_revision,
                                   created_at=x.created_at, candidates=x.candidates) for x in suggestions])
 
+def queue_recognition(db, photo, heads):
+    eligible = [head for head in heads if head.review_state not in ('ignored','unusable')
+                and head.recognition_state in ('not_requested','failed')]
+    if not eligible:
+        return 0
+    db.add(Job(photo_id=photo.id, stage='recognition', pipeline=s.pipeline,
+               observation_ids=[head.id for head in eligible]))
+    for head in eligible:
+        head.recognition_state = 'queued'
+        head.error = None
+    return len(eligible)
+
+def scrub_suggestion_candidates(db, remove):
+    for suggestion in db.scalars(select(Suggestion)).all():
+        kept = [candidate for candidate in suggestion.candidates if not remove(candidate)]
+        if len(kept) != len(suggestion.candidates):
+            suggestion.candidates = kept
+
 @app.get('/api/status')
 @app.get('/health')
 def health(db: DB):
     db.execute(text('SELECT 1'))
-    return {'status':'ok', 'pipeline':s.pipeline, 'environment':s.environment, 'commit':os.getenv('RELEASE_COMMIT','development')}
+    return {'status':'ok', 'pipeline':s.pipeline, 'environment':s.environment,
+            'auto_recognize':s.auto_recognize, 'commit':os.getenv('RELEASE_COMMIT','development')}
 
 @app.get('/api/photos')
 def photos(db: DB):
@@ -124,6 +143,47 @@ def detail(photo_id: str, db: DB):
     return {**photo_json(p), 'heads':[head_json(db,o) for o in heads],
             'jobs':[dict(id=j.id,stage=j.stage,state=j.state,error=j.error,attempts=j.attempts) for j in jobs]}
 
+@app.delete('/api/photos/{photo_id}')
+def delete_photo(photo_id: str, db: DB):
+    p = db.scalar(select(Photo).where(Photo.id == photo_id))
+    if not p:
+        raise HTTPException(404, 'Not found')
+    # Workers lock a job before reading its photo. Use the same lock order so a
+    # deletion waits for in-flight result handling without creating a deadlock.
+    jobs = db.scalars(select(Job).where(Job.photo_id == p.id)
+                      .order_by(Job.created_at, Job.id).with_for_update()).all()
+    p = db.scalar(select(Photo).where(Photo.id == photo_id).with_for_update())
+    if not p:
+        raise HTTPException(404, 'Not found')
+    heads = db.scalars(select(Observation).where(Observation.photo_id == p.id)).all()
+    head_ids = [head.id for head in heads]
+    job_ids = [job.id for job in jobs]
+    object_keys = [p.original_key, p.oriented_key, *previews.keys_for(p.oriented_key)]
+    for head in heads:
+        object_keys.extend([head.crop_key, *previews.keys_for(head.crop_key)])
+    if head_ids:
+        gallery = lock_gallery(db)
+        gallery.revision += 1
+        scrub_suggestion_candidates(db, lambda candidate: candidate.get('reference_id') in head_ids
+                                    or (candidate.get('kind') == 'sighting'
+                                        and candidate.get('id') in head_ids))
+        db.execute(delete(Suggestion).where(Suggestion.observation_id.in_(head_ids)))
+        db.execute(delete(Review).where(Review.observation_id.in_(head_ids)))
+    if job_ids:
+        db.execute(delete(Attempt).where(Attempt.job_id.in_(job_ids)))
+    db.execute(delete(Job).where(Job.photo_id == p.id))
+    db.execute(delete(Observation).where(Observation.photo_id == p.id))
+    batch_id = p.batch_id
+    db.delete(p)
+    db.flush()
+    if not db.scalar(select(Photo.id).where(Photo.batch_id == batch_id).limit(1)):
+        batch = db.get(Batch, batch_id)
+        if batch:
+            db.delete(batch)
+    db.commit()
+    storage.delete_many(object_keys)
+    return {'deleted':True, 'heads_deleted':len(head_ids)}
+
 # Images travel through the restricted API tunnel. S3 never needs public access.
 @app.get('/api/photos/{photo_id}/image')
 def photo_image(photo_id: str, db: DB, variant: previews.Variant = 'original',
@@ -139,15 +199,10 @@ def recognize(photo_id: str, db: DB):
     p = db.scalar(select(Photo).where(Photo.id == photo_id).with_for_update())
     if not p: raise HTTPException(404)
     if p.detection_state != 'complete': raise HTTPException(409, 'Detection must finish first')
-    heads = db.scalars(select(Observation).where(Observation.photo_id == p.id,
-        Observation.review_state.not_in(['ignored','unusable']),
-        Observation.recognition_state.in_(['not_requested','failed']))).all()
-    if not heads: return {'queued':0}
-    job = Job(photo_id=p.id, stage='recognition', pipeline=s.pipeline, observation_ids=[o.id for o in heads])
-    db.add(job)
-    for o in heads: o.recognition_state = 'queued'; o.error = None
+    heads = db.scalars(select(Observation).where(Observation.photo_id == p.id)).all()
+    queued = queue_recognition(db, p, heads)
     db.commit()
-    return {'queued':len(heads)}
+    return {'queued':queued}
 
 @app.post('/api/heads/{head_id}/review')
 def review(head_id: str, body: ReviewInput, db: DB):
@@ -159,6 +214,8 @@ def review(head_id: str, body: ReviewInput, db: DB):
     elif body.bear_id: raise HTTPException(400, 'Only confirmed reviews assign a bear')
     o.review_state = body.state; o.bear_id = body.bear_id
     db.add(Review(observation_id=o.id, state=body.state, bear_id=body.bear_id))
+    if s.auto_recognize and body.state == 'unresolved' and o.recognition_state in ('not_requested','failed'):
+        queue_recognition(db, need(db, Photo, o.photo_id), [o])
     gallery.revision += 1
     db.commit()
     return head_json(db,o)
@@ -188,7 +245,7 @@ def matches(head_id: str, db: DB):
                 Observation.photo_id != query.photo_id)
                 .order_by(Observation.created_at, Observation.id)).all()
             gallery = [reference] + [photo for photo in gallery if photo.id != reference.id]
-            label = candidate['name'] or f"Unnamed bear · {candidate['id'][:8]}"
+            label = candidate['name'] or f"Unknown bear · {candidate['id'][:8]}"
         else:
             gallery = [reference]
             label = f"Unidentified sighting · {candidate['id'][:8]}"
@@ -303,11 +360,16 @@ def refresh(head_id: str, db: DB):
 @app.get('/api/bears')
 def bears(db: DB):
     thumbnails = {}
-    for oid, bid in db.execute(select(Observation.id, Observation.bear_id).where(
-            Observation.review_state == 'confirmed', Observation.bear_id.is_not(None))
+    photo_ids = {}
+    for oid, bid, photo_id, state in db.execute(select(
+            Observation.id, Observation.bear_id, Observation.photo_id, Observation.review_state).where(
+            Observation.bear_id.is_not(None))
             .order_by(Observation.created_at, Observation.id)):
-        thumbnails.setdefault(bid, f'/api/heads/{oid}/image?variant=thumbnail-v1')
-    return [dict(id=b.id,name=b.name,thumbnail_url=thumbnails.get(b.id))
+        photo_ids.setdefault(bid, set()).add(photo_id)
+        if state == 'confirmed':
+            thumbnails.setdefault(bid, f'/api/heads/{oid}/image?variant=thumbnail-v1')
+    return [dict(id=b.id,name=b.name,thumbnail_url=thumbnails.get(b.id),
+                 photo_count=len(photo_ids.get(b.id, set())))
             for b in db.scalars(select(Bear).order_by(Bear.created_at)).all()]
 @app.post('/api/bears')
 def create_bear(body: BearInput, db: DB):
@@ -317,6 +379,25 @@ def create_bear(body: BearInput, db: DB):
 def rename(bear_id: str, body: BearInput, db: DB):
     b = need(db,Bear,bear_id); b.name = (body.name or '').strip() or None; db.commit()
     return dict(id=b.id,name=b.name)
+@app.delete('/api/bears/{bear_id}')
+def delete_bear(bear_id: str, db: DB):
+    gallery = lock_gallery(db)
+    b = db.scalar(select(Bear).where(Bear.id == bear_id).with_for_update())
+    if not b:
+        raise HTTPException(404, 'Not found')
+    assigned = db.scalars(select(Observation).where(Observation.bear_id == b.id)).all()
+    if assigned:
+        photo_count = len({observation.photo_id for observation in assigned})
+        raise HTTPException(409, f'Reassign or remove this bear from its {photo_count} associated photo'
+                                f'{"s" if photo_count != 1 else ""} before deleting it')
+    db.execute(delete(Review).where(Review.bear_id == b.id))
+    scrub_suggestion_candidates(db, lambda candidate: candidate.get('bear_id') == b.id
+                                or (candidate.get('kind') == 'bear'
+                                    and candidate.get('id') == b.id))
+    db.delete(b)
+    gallery.revision += 1
+    db.commit()
+    return {'deleted':True}
 @app.get('/api/bears/{bear_id}/references')
 def references(bear_id: str, db: DB):
     need(db,Bear,bear_id)
@@ -329,7 +410,7 @@ def retry(job_id: str, db: DB):
     if not job: raise HTTPException(404)
     if job.state != 'failed': raise HTTPException(409, 'Only failed jobs can retry')
     if job.stage == 'recognition':
-        raise HTTPException(409, 'Use Run recognition to retry failed eligible heads')
+        raise HTTPException(409, 'Use Retry recognition for failed eligible heads')
     photo = need(db,Photo,job.photo_id)
     if job.pipeline != s.pipeline:
         if db.scalar(select(Observation.id).where(Observation.photo_id == photo.id).limit(1)):
