@@ -21,3 +21,5 @@ node_modules/
 dist/
 .DS_Store
 *.tsbuildinfo
+
+/frontend/public/demo-photos/

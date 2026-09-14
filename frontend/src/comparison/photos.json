@@ -1,0 +1,150 @@
+{
+  "battle": [
+    {
+      "id": "battle-0",
+      "src": "/demo-photos/battle-0.jpg",
+      "label": "IMG_2022.JPG"
+    },
+    {
+      "id": "battle-1",
+      "src": "/demo-photos/battle-1.jpg",
+      "label": "IMG_2090.JPG"
+    },
+    {
+      "id": "battle-2",
+      "src": "/demo-photos/battle-2.jpg",
+      "label": "IMG_2248.JPG"
+    },
+    {
+      "id": "battle-3",
+      "src": "/demo-photos/battle-3.jpg",
+      "label": "IMG_2288.JPG"
+    },
+    {
+      "id": "battle-4",
+      "src": "/demo-photos/battle-4.jpg",
+      "label": "IMG_2404.JPG"
+    },
+    {
+      "id": "battle-5",
+      "src": "/demo-photos/battle-5.jpg",
+      "label": "IMG_2810.JPG"
+    },
+    {
+      "id": "battle-6",
+      "src": "/demo-photos/battle-6.jpg",
+      "label": "IMG_2852.JPG"
+    }
+  ],
+  "cc": [
+    {
+      "id": "cc-0",
+      "src": "/demo-photos/cc-0.jpg",
+      "label": "IMG_2544.JPG"
+    },
+    {
+      "id": "cc-1",
+      "src": "/demo-photos/cc-1.jpg",
+      "label": "IMG_2552.JPG"
+    },
+    {
+      "id": "cc-2",
+      "src": "/demo-photos/cc-2.jpg",
+      "label": "IMG_2557.JPG"
+    },
+    {
+      "id": "cc-3",
+      "src": "/demo-photos/cc-3.jpg",
+      "label": "IMG_2560.JPG"
+    },
+    {
+      "id": "cc-4",
+      "src": "/demo-photos/cc-4.jpg",
+      "label": "IMG_2562.JPG"
+    },
+    {
+      "id": "cc-5",
+      "src": "/demo-photos/cc-5.jpg",
+      "label": "IMG_2566.JPG"
+    },
+    {
+      "id": "cc-6",
+      "src": "/demo-photos/cc-6.jpg",
+      "label": "IMG_2569.JPG"
+    }
+  ],
+  "goucho": [
+    {
+      "id": "goucho-0",
+      "src": "/demo-photos/goucho-0.jpg",
+      "label": "IMG_2012.JPG"
+    },
+    {
+      "id": "goucho-1",
+      "src": "/demo-photos/goucho-1.jpg",
+      "label": "IMG_2268.JPG"
+    },
+    {
+      "id": "goucho-2",
+      "src": "/demo-photos/goucho-2.jpg",
+      "label": "IMG_2362.JPG"
+    },
+    {
+      "id": "goucho-3",
+      "src": "/demo-photos/goucho-3.jpg",
+      "label": "IMG_2716.JPG"
+    },
+    {
+      "id": "goucho-4",
+      "src": "/demo-photos/goucho-4.jpg",
+      "label": "IMG_2812.JPG"
+    },
+    {
+      "id": "goucho-5",
+      "src": "/demo-photos/goucho-5.jpg",
+      "label": "IMG_2870.JPG"
+    },
+    {
+      "id": "goucho-6",
+      "src": "/demo-photos/goucho-6.jpg",
+      "label": "IMG_2928.JPG"
+    }
+  ],
+  "blond_anteater": [
+    {
+      "id": "blond_anteater-0",
+      "src": "/demo-photos/blond_anteater-0.jpg",
+      "label": "IMG_1962.jpg"
+    },
+    {
+      "id": "blond_anteater-1",
+      "src": "/demo-photos/blond_anteater-1.jpg",
+      "label": "IMG_1964.JPG"
+    },
+    {
+      "id": "blond_anteater-2",
+      "src": "/demo-photos/blond_anteater-2.jpg",
+      "label": "IMG_1974.JPG"
+    },
+    {
+      "id": "blond_anteater-3",
+      "src": "/demo-photos/blond_anteater-3.jpg",
+      "label": "IMG_1979.JPG"
+    },
+    {
+      "id": "blond_anteater-4",
+      "src": "/demo-photos/blond_anteater-4.jpg",
+      "label": "IMG_1987.JPG"
+    },
+    {
+      "id": "blond_anteater-5",
+      "src": "/demo-photos/blond_anteater-5.jpg",
+      "label": "IMG_2094.JPG"
+    },
+    {
+      "id": "blond_anteater-6",
+      "src": "/demo-photos/blond_anteater-6.jpg",
+      "label": "IMG_2095.JPG"
+    }
+  ]
+}
