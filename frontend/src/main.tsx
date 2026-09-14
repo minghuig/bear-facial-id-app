@@ -4,6 +4,7 @@ import {QueryClient, QueryClientProvider, useQuery} from '@tanstack/react-query'
 import {Alert, AppBar, Button, Card, CardContent, Chip, CircularProgress, Container, CssBaseline, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Select, Stack, Tab, Tabs, TextField, ThemeProvider, Toolbar, Typography, createTheme} from '@mui/material';
 import './styles.css';
 import {PhotoBrowser} from './PhotoBrowser';
+import LiveComparison from './LiveComparison';
 
 const qc = new QueryClient();
 const theme = createTheme({
@@ -30,6 +31,7 @@ type Photo={id:string;filename:string;image_url:string;thumbnail_url:string;widt
 type Detail=Photo&{heads:Head[];jobs:{id:string;stage:string;state:string;error:string|null;attempts:number}[]};
 const label=(b:Bear)=>b.name||`Unnamed bear · ${b.id.slice(0,8)}`;
 function App(){
+ const [comparison,setComparison]=useState<{headId:string;filename:string}|null>(null);
  const [tab,setTab]=useState(0),[selected,setSelected]=useState(''),[index,setIndex]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
  const [pendingUploads,setPendingUploads]=useState<{name:string;url:string}[]>([]);
  const [uploadCount,setUploadCount]=useState(0),[noticeSeverity,setNoticeSeverity]=useState<'success'|'warning'|'error'>('success');
@@ -47,6 +49,7 @@ function App(){
  const headRecognizing=!!head&&['queued','running'].includes(head.recognition_state);
  const currentError=error||String(photos.error||detail.error||bears.error||health.error||'');
  return <>
+ <div style={{display:comparison?'none':'contents'}}>
   <AppBar position="static" elevation={0} color="transparent" sx={{background:'#fff',borderBottom:'1px solid #dce2dc'}}>
    <Toolbar variant="dense" sx={{gap:2,minHeight:64}}>
     <div className="portal-brand">
@@ -85,7 +88,7 @@ function App(){
     {health.data?.pipeline.startsWith('mock')&&<Typography variant="body2" color="text.secondary">Mock results for development · separate from real inference.</Typography>}
     {tab===0?<div className="photo-workspace">
      <PhotoBrowser photos={photos.data||[]} bears={bears.data||[]} selected={selected} onSelect={id=>{setSelected(id);setIndex(0);setBearChoice('');}} pending={pendingUploads} loading={photos.isPending}/>
-     {!selected&&<div className="empty-state"><Typography component="h2" variant="h6">Select a photo to review</Typography><Typography color="text.secondary">Review detected heads, then match against confirmed bears.</Typography></div>}
+     {!selected&&<div className="empty-state"><Typography component="h2" variant="h6">Select a photo to review</Typography><Typography color="text.secondary">Review detected heads, then compare similar sightings.</Typography></div>}
      {selected&&detail.isPending&&<p className="muted">Loading photo…</p>}
      {detail.data&&<section className="photo-detail" aria-label="Photo review">
       <div className="photo-heading">
@@ -112,19 +115,12 @@ function App(){
          <img src={head.crop_url} alt={`Head ${index+1}`}/>
          <div><Chip size="small" variant="outlined" label={head.review_state.replaceAll('_',' ')}/><Typography variant="body2" color="text.secondary" sx={{mt:1}}>Recognition: {head.recognition_state==='not_requested'?'not run':head.recognition_state.replaceAll('_',' ')}</Typography>{head.bear_id&&<Typography variant="body2" sx={{mt:.5,overflowWrap:'anywhere'}}>{label(bears.data?.find(b=>b.id===head.bear_id)||{id:head.bear_id,name:null})}</Typography>}</div>
         </div>
-        {headRecognizing&&<div className="recognition-status" role="status"><CircularProgress size={24}/><div><strong>{head.recognition_state==='queued'?'Recognition queued':'Recognizing this bear…'}</strong><p>{head.recognition_state==='queued'?'Waiting for the next available worker. You can keep reviewing.':'Comparing this head with confirmed bears. Results appear here automatically.'}</p></div></div>}
+        {headRecognizing&&<div className="recognition-status" role="status"><CircularProgress size={24}/><div><strong>{head.recognition_state==='queued'?'Recognition queued':'Recognizing this bear…'}</strong><p>{head.recognition_state==='queued'?'Waiting for the next available worker. You can keep reviewing.':'Comparing this head with identified and unidentified sightings. Results appear here automatically.'}</p></div></div>}
         {head.error&&<Alert severity="error">{head.error}. Run recognition again to retry this eligible head.</Alert>}
         <Stack direction="row" spacing={.5} useFlexGap flexWrap="wrap">{['unresolved','ignored','unusable'].map(state=><Button key={state} disabled={busy} onClick={()=>review(state)}>{state==='unresolved'?'Leave unidentified':state==='ignored'?'Ignore subject':'Mark unusable'}</Button>)}</Stack>
         {head.recognition_state==='complete'&&<div className="panel-section">
-         <div className="section-heading"><Typography component="h3" variant="subtitle2">Candidate bears</Typography><Button disabled={busy} onClick={()=>act(()=>api(`/api/heads/${head.id}/refresh`,'POST'))}>Refresh</Button></div>
-         <Typography variant="body2" color="text.secondary">Similarity is not identity probability.</Typography>
-         {!head.suggestions[0]?.candidates.length&&<Typography variant="body2" sx={{py:1}}>No eligible references. Assign a bear below or leave unresolved.</Typography>}
-         <div className="candidate-list">{head.suggestions[0]?.candidates.map(c=><div className="candidate-row" key={c.bear_id}>
-          <img src={`/api/heads/${c.reference_id}/image?variant=thumbnail-v1`} alt="Supporting confirmed reference" loading="lazy" decoding="async"/>
-          <div><Typography variant="body2" sx={{fontWeight:600,overflowWrap:'anywhere'}}>{label({id:c.bear_id,name:c.name})}</Typography><Typography variant="caption" color="text.secondary">Similarity {c.cosine.toFixed(4)}</Typography></div>
-          <Button disabled={busy} onClick={()=>review('confirmed',c.bear_id)} aria-label={`Confirm ${label({id:c.bear_id,name:c.name})}`}>Confirm</Button>
-         </div>)}</div>
-         <details className="compact-details"><summary>About these matches</summary><p>Bears with more references may be favored. An empty candidate list does not establish a new individual.</p><p>Saved snapshot revision {head.suggestions[0]?.gallery_revision??'—'} · {head.suggestions.length} snapshot(s)</p></details>
+         <Button variant="contained" disabled={busy} onClick={()=>setComparison({headId:head.id,filename:detail.data!.filename})}>{head.bear_id?'Change identity':'Compare matches'}</Button>
+         <Typography variant="body2" color="text.secondary" sx={{mt:1}}>Compare this sighting with photos of identified and unidentified bears before confirming.</Typography>
         </div>}
         <div className="panel-section">
          <Typography component="h3" variant="subtitle2" sx={{mb:1}}>Assign identity</Typography>
@@ -144,6 +140,8 @@ function App(){
    </Stack>
   </Container>
   <Dialog open={!!dialog} onClose={()=>setDialog(null)} fullWidth maxWidth="xs"><DialogTitle>{dialog==='create'?'Create a distinct bear':'Edit display name'}</DialogTitle><DialogContent><TextField fullWidth autoFocus label="Display name (optional)" value={name} inputProps={{maxLength:120}} onChange={e=>setName(e.target.value)} sx={{mt:1}}/><Typography variant="body2" color="text.secondary" sx={{mt:1}}>Leave blank for an unnamed identity. “Unknown” is not a shared identity.</Typography></DialogContent><DialogActions><Button onClick={()=>setDialog(null)}>Cancel</Button><Button disabled={busy} onClick={()=>act(async()=>{if(dialog==='create'){const b=await api<Bear>('/api/bears','POST',{name:name||null});await api(`/api/heads/${head!.id}/review`,'POST',{state:'confirmed',bear_id:b.id});}else await api(`/api/bears/${bearView}`,'PATCH',{name:name||null});setDialog(null);})}>Save</Button></DialogActions></Dialog>
+ </div>
+ {comparison&&<LiveComparison key={comparison.headId} {...comparison} bears={bears.data||[]} onBack={()=>setComparison(null)} onChanged={()=>{void qc.invalidateQueries();}}/>}
  </>;
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><QueryClientProvider client={qc}><ThemeProvider theme={theme}><CssBaseline/><App/></ThemeProvider></QueryClientProvider></React.StrictMode>);
