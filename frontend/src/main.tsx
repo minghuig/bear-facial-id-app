@@ -32,7 +32,7 @@ function App(){
  const [tab,setTab]=useState(0),[selected,setSelected]=useState(''),[index,setIndex]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
  const [uploadCount,setUploadCount]=useState(0),[noticeSeverity,setNoticeSeverity]=useState<'success'|'warning'|'error'>('success');
  const [bearChoice,setBearChoice]=useState(''),[dialog,setDialog]=useState<'create'|'rename'|null>(null),[name,setName]=useState(''),[bearView,setBearView]=useState('');
- const health=useQuery({queryKey:['health'],queryFn:()=>api<{pipeline:string;commit:string}>('/health')});
+ const health=useQuery({queryKey:['health'],queryFn:()=>api<{pipeline:string;commit:string;environment:string}>('/health')});
  const photos=useQuery({queryKey:['photos'],queryFn:()=>api<Photo[]>('/api/photos'),refetchInterval:3000});
  const bears=useQuery({queryKey:['bears'],queryFn:()=>api<Bear[]>('/api/bears')});
  const detail=useQuery({queryKey:['photo',selected],queryFn:()=>api<Detail>('/api/photos/'+selected),enabled:!!selected,refetchInterval:2000});
@@ -46,7 +46,7 @@ function App(){
   <AppBar position="static" elevation={0} color="transparent" sx={{background:'#fff',borderBottom:'1px solid #dce2dc'}}>
    <Toolbar variant="dense" sx={{gap:2,minHeight:56}}>
     <Typography component="h1" variant="h6" sx={{flex:1,fontWeight:700}}>Only Bears</Typography>
-    <Chip size="small" variant="outlined" label={health.data?.pipeline.startsWith('mock')?'Mock inference':health.data?.pipeline||'Connecting'}/>
+    <Chip size="small" variant="outlined" label={!health.data?'Connecting':health.data.pipeline.startsWith('mock')?'Mock inference':health.data.environment==='aws'?'AWS · CPU':'Local · CPU'}/>
    </Toolbar>
   </AppBar>
   <Container maxWidth="xl" sx={{py:2}}>
@@ -105,7 +105,7 @@ function App(){
          <Typography variant="body2" color="text.secondary">Ignore cubs or unusable crops first. Recognition runs only when requested.</Typography>
          <Button disabled={busy||!detail.data.heads.some(h=>['not_requested','failed'].includes(h.recognition_state)&&!['ignored','unusable'].includes(h.review_state))} variant="contained" onClick={()=>act(()=>api(`/api/photos/${selected}/recognize`,'POST'))}>Run recognition</Button>
         </div>}
-        {detail.data.jobs.filter(j=>j.error).map(j=><Alert key={j.id} severity={j.state==='failed'?'error':'warning'}>{j.stage}: {j.error} (attempts: {j.attempts}, {j.state}) {j.state==='failed'&&j.stage==='detection'&&<Button disabled={busy} onClick={()=>act(()=>api(`/api/jobs/${j.id}/retry`,'POST'))}>Retry detection</Button>}</Alert>)}
+        {detail.data.jobs.filter(j=>j.error&&j.state!=='superseded').map(j=><Alert key={j.id} severity={j.state==='failed'?'error':'warning'}>{j.stage}: {j.error} (attempts: {j.attempts}, {j.state}) {j.state==='failed'&&j.stage==='detection'&&<Button disabled={busy} onClick={()=>act(()=>api(`/api/jobs/${j.id}/retry`,'POST'))}>Retry detection</Button>}</Alert>)}
        </div>
        {head&&<Card className="review-panel"><CardContent sx={{p:2,'&:last-child':{pb:2}}}><Stack spacing={1.5}>
         <div className="head-navigation"><Button disabled={index===0} onClick={()=>{setIndex(index-1);setBearChoice('');}}>Previous</Button><Typography component="h3" variant="subtitle2">Head {index+1} of {detail.data.heads.length}</Typography><Button disabled={index===detail.data.heads.length-1} onClick={()=>{setIndex(index+1);setBearChoice('');}}>Next</Button></div>
