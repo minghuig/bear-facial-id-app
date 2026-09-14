@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 import httpx
+from process_error import describe
 
 API = os.environ.get('API_URL','http://api:8000')
 MODE = os.environ.get('MODE','mock')
@@ -68,6 +69,7 @@ def main():
                     result = {'token':job['token'],'pipeline':PIPELINE,
                               'provenance':{'mode':MODE,'seconds':time.monotonic()-started,'commit':os.getenv('RELEASE_COMMIT','development')}}
                     try: result.update(future.result())
+                    except subprocess.CalledProcessError as e: result['error'] = describe(e)
                     except Exception as e: result['error'] = str(e)[:2000]
                     response = client.post(f"/internal/jobs/{job['job_id']}/result",json=result)
                     response.raise_for_status()

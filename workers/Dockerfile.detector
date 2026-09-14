@@ -1,11 +1,12 @@
 # Build and run on AWS x86 only; never execute ML on the owner's Mac.
-FROM --platform=linux/amd64 python:3.9-slim
+FROM --platform=linux/amd64 python:3.9-slim-bookworm
 WORKDIR /worker
 RUN pip install --no-cache-dir numpy==1.23.5 setuptools==69.5.1 wheel==0.45.1 && \
  pip install --no-cache-dir torch==1.10.0+cpu torchvision==0.11.1+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
  pip install --no-cache-dir opencv-python-headless==4.8.1.78 Pillow==9.5.0 matplotlib==3.7.5 scipy==1.10.1 pycocotools==2.0.7 yapf==0.40.1 addict==2.4.0 PyYAML==6.0.2 packaging==24.2 terminaltables==3.1.10 six==1.17.0 httpx==0.28.1 && \
  pip install --no-cache-dir --no-deps --no-build-isolation https://download.openmmlab.com/mmcv/dist/cpu/torch1.10.0/mmcv_full-1.3.17-cp39-cp39-manylinux1_x86_64.whl && \
- pip install --no-cache-dir --no-deps mmdet==2.22.0
+ pip install --no-cache-dir --no-deps mmdet==2.22.0 && \
+ python -c "import torch; from mmcv.ops import nms; import mmdet"
 COPY workers/ .
 USER 10001
 ENV MODE=real STAGE=detection

@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {QueryClient, QueryClientProvider, useQuery} from '@tanstack/react-query';
-import {Alert, AppBar, Button, Card, CardContent, Chip, Container, CssBaseline, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Select, Stack, Tab, Tabs, TextField, ThemeProvider, Toolbar, Typography, createTheme} from '@mui/material';
+import {Alert, AppBar, Button, Card, CardContent, Chip, CircularProgress, Container, CssBaseline, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Select, Stack, Tab, Tabs, TextField, ThemeProvider, Toolbar, Typography, createTheme} from '@mui/material';
 import './styles.css';
 
 const qc = new QueryClient();
@@ -30,6 +30,7 @@ type Detail=Photo&{heads:Head[];jobs:{id:string;stage:string;state:string;error:
 const label=(b:Bear)=>b.name||`Unnamed bear · ${b.id.slice(0,8)}`;
 function App(){
  const [tab,setTab]=useState(0),[selected,setSelected]=useState(''),[index,setIndex]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+ const [uploadCount,setUploadCount]=useState(0),[noticeSeverity,setNoticeSeverity]=useState<'success'|'warning'|'error'>('success');
  const [bearChoice,setBearChoice]=useState(''),[dialog,setDialog]=useState<'create'|'rename'|null>(null),[name,setName]=useState(''),[bearView,setBearView]=useState('');
  const health=useQuery({queryKey:['health'],queryFn:()=>api<{pipeline:string;commit:string}>('/health')});
  const photos=useQuery({queryKey:['photos'],queryFn:()=>api<Photo[]>('/api/photos'),refetchInterval:3000});
@@ -51,20 +52,25 @@ function App(){
   <Container maxWidth="xl" sx={{py:2}}>
    <Stack spacing={2}>
     {currentError&&<Alert severity="error" onClose={()=>setError('')}>{currentError}</Alert>}
-    {notice&&<Alert onClose={()=>setNotice('')}>{notice}</Alert>}
+    {notice&&<Alert severity={noticeSeverity} onClose={()=>setNotice('')}>{notice}</Alert>}
     <div className="workspace-toolbar">
      <Tabs value={tab} onChange={(_,v)=>setTab(v)} aria-label="Collection views">
       <Tab label="Photos & review"/><Tab label="Bears & references"/>
      </Tabs>
-     {tab===0&&<Button variant="contained" component="label" disabled={busy}>Upload photos
+     {tab===0&&<Button variant="contained" component="label" disabled={busy} aria-busy={uploadCount>0} startIcon={uploadCount>0?<CircularProgress size={16} color="inherit" aria-label="Uploading photos"/>:undefined}>
+      {uploadCount>0?`Uploading ${uploadCount} photo${uploadCount===1?'':'s'}…`:'Upload photos'}
       <input hidden multiple type="file" accept="image/jpeg,image/png" onChange={e=>{
        const files=Array.from(e.target.files||[]);e.target.value='';if(!files.length)return;
+       if(files.length>20){setError('Select up to 20 photos at once.');return;}
+       setNotice('');setUploadCount(files.length);
        void act(async()=>{
         const form=new FormData();files.forEach(f=>form.append('files',f));
         const result=await api<{photos:(Photo&{error?:string;duplicate?:boolean})[]}>('/api/photos','POST',form);
+        const failures=result.photos.filter(p=>p.error).length;
+        setNoticeSeverity(failures===0?'success':failures===result.photos.length?'error':'warning');
         setNotice(result.photos.map(p=>`${p.filename}: ${p.error||(p.duplicate?'already uploaded':'saved')}`).join('; '));
         const first=result.photos.find(p=>p.id);if(first){setSelected(first.id);setIndex(0);setBearChoice('');}
-       });
+       }).finally(()=>setUploadCount(0));
       }}/>
      </Button>}
     </div>
