@@ -25,7 +25,7 @@ async function api<T>(path:string,method='GET',body?:unknown):Promise<T>{
 type Bear={id:string;name:string|null};
 type Candidate={bear_id:string;name:string|null;reference_id:string;cosine:number};
 type Head={id:string;index:number;box:number[];crop_url:string;recognition_state:string;review_state:string;bear_id:string|null;error:string|null;suggestions:{id:string;created_at:string;gallery_revision:number;candidates:Candidate[]}[]};
-type Photo={id:string;filename:string;image_url:string;width:number;height:number;detection_state:string;pipeline:string};
+type Photo={id:string;filename:string;image_url:string;thumbnail_url:string;width:number;height:number;detection_state:string;pipeline:string};
 type Detail=Photo&{heads:Head[];jobs:{id:string;stage:string;state:string;error:string|null;attempts:number}[]};
 const label=(b:Bear)=>b.name||`Unnamed bear · ${b.id.slice(0,8)}`;
 function App(){
@@ -80,7 +80,7 @@ function App(){
       <div className="section-label">Photos <span>{photos.data?.length??0}</span></div>
       <div className="collection-items">
        {photos.data?.map(p=><button type="button" key={p.id} className="collection-item" aria-current={selected===p.id?'true':undefined} onClick={()=>{setSelected(p.id);setIndex(0);setBearChoice('');}}>
-        <img src={p.image_url} alt="" loading="lazy"/>
+        <img src={p.thumbnail_url} alt="" loading="lazy" decoding="async"/>
         <span className="item-copy"><span className="item-name" title={p.filename}>{p.filename}</span><span className="item-state">{p.detection_state==='complete'?'Ready to review':p.detection_state.replaceAll('_',' ')}</span></span>
        </button>)}
       </div>
@@ -97,7 +97,7 @@ function App(){
        <div className="photo-column">
         <div className="photo-stage">
          <div className="photo-canvas" style={{width:`min(100%, ${360*detail.data.width/detail.data.height}px)`}}>
-          <img src={detail.data.image_url} alt="Oriented original"/>
+          <img src={detail.data.image_url} alt="Oriented photo preview"/>
           {detail.data.heads.map((h,i)=><button type="button" className="head-box" key={h.id} aria-label={`Select head ${i+1}`} aria-pressed={i===index} onClick={()=>{setIndex(i);setBearChoice('');}} style={{left:`${100*h.box[0]/detail.data!.width}%`,top:`${100*h.box[1]/detail.data!.height}%`,width:`${100*(h.box[2]-h.box[0])/detail.data!.width}%`,height:`${100*(h.box[3]-h.box[1])/detail.data!.height}%`}}><span>{i+1}</span></button>)}
          </div>
         </div>
@@ -120,7 +120,7 @@ function App(){
          <Typography variant="body2" color="text.secondary">Similarity is not identity probability.</Typography>
          {!head.suggestions[0]?.candidates.length&&<Typography variant="body2" sx={{py:1}}>No eligible references. Assign a bear below or leave unresolved.</Typography>}
          <div className="candidate-list">{head.suggestions[0]?.candidates.map(c=><div className="candidate-row" key={c.bear_id}>
-          <img src={`/api/heads/${c.reference_id}/image`} alt="Supporting confirmed reference"/>
+          <img src={`/api/heads/${c.reference_id}/image?variant=thumbnail-v1`} alt="Supporting confirmed reference" loading="lazy" decoding="async"/>
           <div><Typography variant="body2" sx={{fontWeight:600,overflowWrap:'anywhere'}}>{label({id:c.bear_id,name:c.name})}</Typography><Typography variant="caption" color="text.secondary">Cosine {c.cosine.toFixed(4)}</Typography></div>
           <Button disabled={busy} onClick={()=>review('confirmed',c.bear_id)} aria-label={`Confirm ${label({id:c.bear_id,name:c.name})}`}>Confirm</Button>
          </div>)}</div>

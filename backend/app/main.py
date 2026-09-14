@@ -16,7 +16,7 @@ from .config import settings
 from .db import session
 from .models import Batch, Photo, Observation, Bear, Review, Gallery, Suggestion, Job, Attempt, now, uid
 from .contracts import Claim, Lease, Result, ReviewInput, BearInput
-from . import storage
+from . import storage, previews
 from .retrieval import snapshot, vector
 
 s = settings()
@@ -46,12 +46,13 @@ def lock_gallery(db):
 def photo_json(p):
     return dict(id=p.id, filename=p.filename, width=p.width, height=p.height,
                 detection_state=p.detection_state, pipeline=p.pipeline, created_at=p.created_at,
-                image_url=f'/api/photos/{p.id}/image')
+                image_url=f'/api/photos/{p.id}/image?variant=preview-v1',
+                thumbnail_url=f'/api/photos/{p.id}/image?variant=thumbnail-v1')
 
 def head_json(db, o):
     suggestions = db.scalars(select(Suggestion).where(Suggestion.observation_id == o.id).order_by(Suggestion.created_at.desc())).all()
     return dict(id=o.id, photo_id=o.photo_id, index=o.index, box=o.box,
-                crop_url=f'/api/heads/{o.id}/image', recognition_state=o.recognition_state,
+                crop_url=f'/api/heads/{o.id}/image?variant=preview-v1', recognition_state=o.recognition_state,
                 review_state=o.review_state, bear_id=o.bear_id, error=o.error,
                 suggestions=[dict(id=x.id, pipeline=x.pipeline, gallery_revision=x.gallery_revision,
                                   created_at=x.created_at, candidates=x.candidates) for x in suggestions])
@@ -116,11 +117,13 @@ def detail(photo_id: str, db: DB):
 
 # Images travel through the restricted API tunnel. S3 never needs public access.
 @app.get('/api/photos/{photo_id}/image')
-def photo_image(photo_id: str, db: DB):
-    return Response(storage.get(need(db,Photo,photo_id).oriented_key), media_type='image/png')
+def photo_image(photo_id: str, db: DB, variant: previews.Variant = 'original',
+                if_none_match: Annotated[str | None, Header()] = None):
+    return previews.response(need(db,Photo,photo_id).oriented_key, variant, if_none_match)
 @app.get('/api/heads/{head_id}/image')
-def head_image(head_id: str, db: DB):
-    return Response(storage.get(need(db,Observation,head_id).crop_key), media_type='image/png')
+def head_image(head_id: str, db: DB, variant: previews.Variant = 'original',
+               if_none_match: Annotated[str | None, Header()] = None):
+    return previews.response(need(db,Observation,head_id).crop_key, variant, if_none_match)
 
 @app.post('/api/photos/{photo_id}/recognize')
 def recognize(photo_id: str, db: DB):

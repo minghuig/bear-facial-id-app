@@ -37,6 +37,7 @@ def api(monkeypatch):
     objects = {}
     monkeypatch.setattr(storage, 'put', lambda key, data, content_type='image/png': objects.__setitem__(key, data))
     monkeypatch.setattr(storage, 'get', lambda key: objects[key])
+    monkeypatch.setattr(storage, 'get_optional', lambda key: objects.get(key))
     monkeypatch.setattr(storage, 'signed', lambda key: 'https://storage.invalid/' + key)
     try:
         with TestClient(main.app) as client:
