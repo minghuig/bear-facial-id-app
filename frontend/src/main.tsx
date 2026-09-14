@@ -5,7 +5,7 @@ import {Alert, AppBar, Button, Card, CardContent, Chip, CircularProgress, Contai
 import './styles.css';
 import {SignInPage} from './SignInPage';
 import {PhotoBrowser} from './PhotoBrowser';
-import LiveComparison from './LiveComparison';
+import LiveComparison, {type ConfirmedMatch, type Matches} from './LiveComparison';
 
 const qc = new QueryClient();
 let csrfToken='';
@@ -37,7 +37,8 @@ type Photo={id:string;filename:string;image_url:string;thumbnail_url:string;widt
 type Detail=Photo&{heads:Head[];jobs:{id:string;stage:string;state:string;error:string|null;attempts:number}[]};
 const label=(b:Bear)=>b.name||`Unnamed bear · ${b.id.slice(0,8)}`;
 function App({identity}:{identity:Identity}){
- const [comparison,setComparison]=useState<{headId:string;filename:string}|null>(null);
+ const [matchNotice,setMatchNotice]=useState<{confirmation:ConfirmedMatch;undone:boolean}|null>(null);
+ const [comparison,setComparison]=useState<{headId:string;filename:string;initialMatchId?:string}|null>(null);
  const [tab,setTab]=useState(0),[selected,setSelected]=useState(''),[index,setIndex]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
  const [pendingUploads,setPendingUploads]=useState<{name:string;url:string}[]>([]);
  const [uploadCount,setUploadCount]=useState(0),[noticeSeverity,setNoticeSeverity]=useState<'success'|'warning'|'error'>('success');
@@ -48,8 +49,14 @@ function App({identity}:{identity:Identity}){
  const detail=useQuery({queryKey:[identity.org_id,'photo',selected],queryFn:()=>api<Detail>('/api/photos/'+selected),enabled:!!selected,refetchInterval:2000});
  const refs=useQuery({queryKey:[identity.org_id,'refs',bearView],queryFn:()=>api<Head[]>(`/api/bears/${bearView}/references`),enabled:!!bearView});
  const head=detail.data?.heads[index];
+ const similar=useQuery({queryKey:[identity.org_id,'comparison',head?.id],queryFn:()=>api<Matches>(`/api/heads/${head!.id}/matches`),enabled:!!head&&head.recognition_state==='complete'&&!['ignored','unusable'].includes(head.review_state)&&!comparison,refetchInterval:comparison?false:5000});
  const history=useQuery({queryKey:[identity.org_id,'history',head?.id],queryFn:()=>api<{id:string;state:string;bear_id:string|null;created_at:string}[]>(`/api/heads/${head!.id}/history`),enabled:!!head});
  async function act(fn:()=>Promise<unknown>,lock=true){setError('');if(lock)setBusy(true);try{await fn();await qc.invalidateQueries();}catch(e){setError(String(e));}finally{if(lock)setBusy(false);}}
+ async function undoComparison(){
+  if(!matchNotice||matchNotice.undone)return;
+  const receipt=matchNotice.confirmation;
+  await act(async()=>{await api(`/api/heads/${receipt.headId}/undo-match`,'POST',receipt.undo);setMatchNotice(current=>current?.confirmation===receipt?{...current,undone:true}:current);});
+ }
  function review(state:string,bear_id?:string){if(head)void act(()=>api(`/api/heads/${head.id}/review`,'POST',{state,bear_id:bear_id||null}));}
  const recognizing=!!detail.data?.heads.some(h=>['queued','running'].includes(h.recognition_state));
  const headRecognizing=!!head&&['queued','running'].includes(head.recognition_state);
@@ -70,6 +77,7 @@ function App({identity}:{identity:Identity}){
   <Container className="app-content" maxWidth={false} sx={{py:2}}>
    <Stack className="workspace-stack" spacing={2}>
     {currentError&&<Alert severity="error" onClose={()=>setError('')}>{currentError}</Alert>}
+    {matchNotice&&<Alert severity="success" onClose={()=>setMatchNotice(null)} action={!matchNotice.undone?<Button disabled={busy} onClick={()=>void undoComparison()}>Undo</Button>:undefined}>{matchNotice.undone?'Previous identity restored':'Identity saved'} · {matchNotice.confirmation.filename}</Alert>}
     {notice&&<Alert severity={noticeSeverity} onClose={()=>setNotice('')}>{notice}</Alert>}
     <div className="workspace-toolbar">
      <Tabs value={tab} onChange={(_,v)=>setTab(v)} aria-label="Collection views">
@@ -128,8 +136,18 @@ function App({identity}:{identity:Identity}){
         {head.error&&<Alert severity="error">{head.error}. Run recognition again to retry this eligible head.</Alert>}
         <Stack direction="row" spacing={.5} useFlexGap flexWrap="wrap">{['unresolved','ignored','unusable'].map(state=><Button key={state} disabled={busy} onClick={()=>review(state)}>{state==='unresolved'?(['ignored','unusable'].includes(head.review_state)?'Restore as unidentified':head.bear_id?'Remove identity':'Leave unidentified'):state==='ignored'?'Ignore subject':'Mark unusable'}</Button>)}</Stack>
         {head.recognition_state==='complete'&&<div className="panel-section">
-         <Button variant="contained" disabled={busy||['ignored','unusable'].includes(head.review_state)} onClick={()=>setComparison({headId:head.id,filename:detail.data!.filename})}>{head.bear_id?'Change identity':'Compare matches'}</Button>
-         <Typography variant="body2" color="text.secondary" sx={{mt:1}}>{['ignored','unusable'].includes(head.review_state)?'Restore this sighting as unidentified to compare matches.':'Compare this sighting with photos of identified and unidentified bears before confirming.'}</Typography>
+         <div className="section-heading"><Typography component="h3" variant="subtitle2">Similar sightings</Typography></div>
+         {['ignored','unusable'].includes(head.review_state)?<Typography variant="body2" color="text.secondary">Restore this sighting as unidentified to compare matches.</Typography>:<>
+          <Typography variant="caption" color="text.secondary">Highest similarity first · similarity is not identity probability.</Typography>
+          {similar.isPending&&<Typography variant="body2" role="status">Loading matches…</Typography>}
+          {similar.error&&<Alert severity="error" action={<Button onClick={()=>void similar.refetch()}>Retry</Button>}>Unable to load similar sightings.</Alert>}
+          {!similar.isPending&&!similar.error&&!similar.data?.candidates.length&&<Typography variant="body2">No similar sightings yet.</Typography>}
+          <div className="candidate-list" aria-label="Similar sightings">{[...(similar.data?.candidates||[])].sort((a,b)=>b.similarity-a.similarity).map(candidate=><div className="candidate-row" key={candidate.id}>
+           <img src={candidate.photos[0]?.src} alt={candidate.label} loading="lazy"/>
+           <div><Typography variant="body2" sx={{fontWeight:600,overflowWrap:'anywhere'}}>{candidate.label}</Typography><Typography variant="caption" color="text.secondary">Similarity {candidate.similarity.toFixed(3)}</Typography></div>
+           <Button disabled={busy||!!similar.error} aria-label={`Compare ${candidate.label}`} onClick={()=>setComparison({headId:head.id,filename:detail.data!.filename,initialMatchId:candidate.id})}>Compare</Button>
+          </div>)}</div>
+         </>}
         </div>}
         <div className="panel-section">
          <Typography component="h3" variant="subtitle2" sx={{mb:1}}>Assign identity</Typography>
@@ -150,7 +168,7 @@ function App({identity}:{identity:Identity}){
   </Container>
   <Dialog open={!!dialog} onClose={()=>setDialog(null)} fullWidth maxWidth="xs"><DialogTitle>{dialog==='create'?'Create a distinct bear':'Edit display name'}</DialogTitle><DialogContent><TextField fullWidth autoFocus label="Display name (optional)" value={name} inputProps={{maxLength:120}} onChange={e=>setName(e.target.value)} sx={{mt:1}}/><Typography variant="body2" color="text.secondary" sx={{mt:1}}>Leave blank for an unnamed identity. “Unknown” is not a shared identity.</Typography></DialogContent><DialogActions><Button onClick={()=>setDialog(null)}>Cancel</Button><Button disabled={busy} onClick={()=>act(async()=>{if(dialog==='create'){const b=await api<Bear>('/api/bears','POST',{name:name||null});await api(`/api/heads/${head!.id}/review`,'POST',{state:'confirmed',bear_id:b.id});}else await api(`/api/bears/${bearView}`,'PATCH',{name:name||null});setDialog(null);})}>Save</Button></DialogActions></Dialog>
  </div>
- {comparison&&<LiveComparison key={comparison.headId} {...comparison} orgId={identity.org_id} api={api} bears={bears.data||[]} onBack={()=>setComparison(null)} onChanged={()=>{void qc.invalidateQueries();}}/>}
+ {comparison&&<LiveComparison key={comparison.headId} {...comparison} orgId={identity.org_id} api={api} bears={bears.data||[]} onBack={()=>setComparison(null)} onConfirmed={result=>{setError('');setMatchNotice({confirmation:result,undone:false});setComparison(null);void qc.invalidateQueries();}}/>}
  </>;
 }
 function AccountGate(){

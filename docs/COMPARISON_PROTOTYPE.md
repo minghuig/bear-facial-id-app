@@ -36,4 +36,4 @@ Source is retained only on codex/comparison-prototype. No merge/deployment/produ
 
 The main app now opens the same simple comparison flow using live recognition candidates. Eligible unidentified sightings appear alongside known identities, ordered by similarity; each known candidate exposes its full confirmed gallery. Confirmation writes a reviewed identity. Change identity moves only the current sighting, with guarded Undo based on saved review history. All access retains the deployed organization and sign-in boundaries. Demo comparison.html remains a local Vite prototype and is excluded from the production build.
 
-Follow-up BEAR-32: after initial release, confirmation should automatically return to the library with Undo.
+BEAR-32: successful confirmation returns automatically to the photo library, preserving selection and filters, with Undo bound to the saved sighting. Failed saves and cancellation stay in comparison. The main review panel lists live similar sightings vertically with similarity scores; each Compare button opens that candidate.

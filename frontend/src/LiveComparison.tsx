@@ -6,12 +6,13 @@ import './live-comparison.css';
 type Picture={id:string;src:string;label:string};
 type Match={id:string;label:string;kind:'bear'|'sighting';similarity:number;reference_id:string;bear_id:string|null;photos:Picture[]};
 type Head={id:string;crop_url:string;bear_id:string|null;review_state:string};
-type Matches={head:Head;candidates:Match[]};
-type Undo={head_review_id:string;reference_review_id:string|null};
-export default function LiveComparison({headId,filename,bears,orgId,api,onBack,onChanged}:{headId:string;filename:string;orgId:string;api:<T>(path:string,method?:string,body?:unknown)=>Promise<T>;bears:{id:string;name:string|null}[];onBack:()=>void;onChanged:()=>void}){
+export type Matches={head:Head;candidates:Match[]};
+export type Undo={head_review_id:string;reference_review_id:string|null};
+export type ConfirmedMatch={headId:string;filename:string;initialMatchId?:string;undo:Undo};
+export default function LiveComparison({headId,filename,bears,orgId,api,onBack,onConfirmed,initialMatchId}:{headId:string;filename:string;initialMatchId?:string;orgId:string;api:<T>(path:string,method?:string,body?:unknown)=>Promise<T>;bears:{id:string;name:string|null}[];onBack:()=>void;onConfirmed:(result:ConfirmedMatch)=>void}){
  const request=<T,>(path:string,body?:unknown)=>api<T>(path,body===undefined?'GET':'POST',body);
- const [selected,setSelected]=useState(''),[photoId,setPhotoId]=useState(''),[pending,setPending]=useState<{head:Head;match:Match}|null>(null);
- const [busy,setBusy]=useState(false),[error,setError]=useState(''),[undo,setUndo]=useState<Undo|null>(null),[saved,setSaved]=useState('');
+ const [selected,setSelected]=useState(initialMatchId||''),[photoId,setPhotoId]=useState(''),[pending,setPending]=useState<{head:Head;match:Match}|null>(null);
+ const [busy,setBusy]=useState(false),[error,setError]=useState('');
  const query=useQuery({queryKey:[orgId,'comparison',headId],queryFn:()=>request<Matches>(`/api/heads/${headId}/matches`),refetchInterval:pending||busy?false:5000});
  const data=query.data;
  const matches=[...(data?.candidates||[])].sort((a,b)=>b.similarity-a.similarity);
@@ -20,15 +21,13 @@ export default function LiveComparison({headId,filename,bears,orgId,api,onBack,o
  const currentName=data?.head.bear_id?(bears.find(b=>b.id===data.head.bear_id)?.name||`Unnamed bear · ${data.head.bear_id.slice(0,8)}`):'Unidentified';
  async function confirm(){
   if(!pending)return;setBusy(true);setError('');
-  try{const result=await request<{head:Head;undo:Undo}>(`/api/heads/${headId}/match`,{reference_id:pending.match.reference_id,expected_bear_id:pending.head.bear_id,expected_review_state:pending.head.review_state,expected_reference_bear_id:pending.match.bear_id});setUndo(result.undo);setSaved('Identity saved.');setPending(null);onChanged();await query.refetch();}
+  try{const result=await request<{head:Head;undo:Undo}>(`/api/heads/${headId}/match`,{reference_id:pending.match.reference_id,expected_bear_id:pending.head.bear_id,expected_review_state:pending.head.review_state,expected_reference_bear_id:pending.match.bear_id});onConfirmed({headId,filename,undo:result.undo});}
   catch(e){setError(String(e instanceof Error?e.message:e));}finally{setBusy(false);}
  }
- async function undoMatch(){if(!undo)return;setBusy(true);setError('');try{await request(`/api/heads/${headId}/undo-match`,undo);setUndo(null);setSaved('Previous identity restored.');onChanged();await query.refetch();}catch(e){setError(String(e instanceof Error?e.message:e));}finally{setBusy(false);}}
  return <section className="live-comparison" aria-label="Compare bear photos">
   <div className="lc-heading"><div><Button onClick={onBack} disabled={busy}>← Back to photos</Button><h1>Compare photos</h1></div><span>{filename}</span></div>
   {(error||query.error)&&<Alert severity="error" action={<Button onClick={()=>{setPending(null);setError('');void query.refetch();}}>Reload matches</Button>}>{error||String(query.error)}</Alert>}
   {data&&['ignored','unusable'].includes(data.head.review_state)&&<Alert severity="info">This sighting is {data.head.review_state}. Return to the photo and restore it as unidentified before confirming a match.</Alert>}
-  {saved&&<Alert severity="success" action={undo?<Button disabled={busy} onClick={()=>void undoMatch()}>Undo</Button>:undefined}>{saved}</Alert>}
   {query.isPending?<p role="status">Loading similar sightings…</p>:data&&<>
    <div className="lc-pair">
     <figure><figcaption><strong>Your sighting</strong><span>{currentName}</span></figcaption><div className="lc-image"><img src={data.head.crop_url} alt={`Your sighting in ${filename}`}/></div></figure>
