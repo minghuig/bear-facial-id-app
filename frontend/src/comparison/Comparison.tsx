@@ -1,76 +1,34 @@
-import { useRef, useState, type ReactNode } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
-import { buildAssignment, sortCandidates, type Candidate, type Photo } from './model';
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogTitle } from '@mui/material';
 import { current, initialCandidates } from './fixtures';
+import { sortCandidates, type Photo } from './model';
 
-function PhotoImage({photo}: {photo:Photo}) {
- const [failed,setFailed]=useState(false);
- return failed?<span className="missing">Private demo photo missing. Run the photo preparation script in docs/COMPARISON_PROTOTYPE.md.</span>:<img src={photo.src} alt={photo.label} onError={()=>setFailed(true)}/>;
+const matches = sortCandidates(initialCandidates);
+function Picture({photo}: {photo:Photo}) {
+ return <img src={photo.src} alt={photo.label}/>;
 }
-function Modal({title,children,onClose,actions,wide=false}: {title:string;children:ReactNode;onClose:()=>void;actions?:ReactNode;wide?:boolean}) {
- return <Dialog open onClose={onClose} fullWidth maxWidth={wide?'xl':'md'} PaperProps={{className:'prototype-dialog'}}><DialogTitle><span>{title}</span><button className="icon-button" onClick={onClose} aria-label="Close dialog">×</button></DialogTitle><DialogContent>{children}</DialogContent>{actions&&<DialogActions>{actions}</DialogActions>}</Dialog>;
-}
-export default function Comparison(){
- const [candidates,setCandidates]=useState<Candidate[]>(initialCandidates);
- const [compared,setCompared]=useState<string[]>(['cedar','b']);
- const [selected,setSelected]=useState<string[]>([]),[destination,setDestination]=useState('');
- const [indices,setIndices]=useState<Record<string,number>>({});
- const [viewed,setViewed]=useState<Record<string,number[]>>({cedar:[0],b:[0]});
- const [search,setSearch]=useState(''),[filter,setFilter]=useState('all');
- const [gallery,setGallery]=useState<string|null>(null),[zoom,setZoom]=useState<Photo[]|null>(null),[zoomScale,setZoomScale]=useState(1);
- const [reviewing,setReviewing]=useState(false),[notice,setNotice]=useState(''),[saved,setSaved]=useState(false),[kept,setKept]=useState(false);
- const undo=useRef<Candidate[]|null>(null);
- const candidate=(id:string)=>candidates.find(c=>c.id===id)!;
- const chosen=destination&&destination!=='new'?candidate(destination):null;
- const additions=[current,...selected.map(id=>({...candidate(id).photos[0],label:candidate(id).label}))];
- const visible=sortCandidates(candidates).filter(c=>(filter==='all'||c.kind===filter)&&c.label.toLowerCase().includes(search.toLowerCase()));
- function selectReference(id:string,i:number){setIndices(v=>({...v,[id]:i}));setViewed(v=>({...v,[id]:[...new Set([...(v[id]||[0]),i])]}));}
- function toggleCompare(id:string){
-  if(compared.includes(id)){setCompared(compared.filter(x=>x!==id));return;}
-  if(compared.length===3){setNotice('Three candidates are open. Remove one to compare another.');return;}
-  setCompared([...compared,id]);setViewed(v=>({...v,[id]:v[id]||[0]}));
- }
- function toggleSelected(id:string){setKept(false);setSelected(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id]);}
- function openZoom(photos:Photo[]){setZoomScale(1);setZoom(photos);}
- function reset(){setSearch('');setFilter('all');setCandidates(initialCandidates);setCompared(['cedar','b']);setSelected([]);setDestination('');setIndices({});setViewed({cedar:[0],b:[0]});setSaved(false);setKept(false);setNotice('Demo reset. All sightings are back in their original state.');undo.current=null;}
- function save(){
-  const assignment=buildAssignment(current.id,selected,destination,candidates);
-  undo.current=candidates;
-  const recordId=assignment.destination==='new'?'unnamed-08':assignment.destination;
-  const next=candidates.filter(c=>!selected.includes(c.id));
-  if(assignment.destination==='new')next.unshift({id:recordId,label:'Unnamed bear 08',kind:'bear',photos:additions});
-  else {const i=next.findIndex(c=>c.id===recordId);next[i]={...next[i],photos:[...next[i].photos,...additions]};}
-  setCandidates(next);setCompared([recordId]);setSelected([]);setDestination(recordId);setSaved(true);setReviewing(false);
-  setNotice(`Demo saved: ${additions.length} sighting${additions.length===1?'':'s'} ${assignment.destination==='new'?'grouped as Unnamed bear 08':`added to ${chosen!.label}`}. Your real collection is unchanged.`);
- }
- function undoSave(){if(!undo.current)return;setCandidates(undo.current);setSaved(false);setDestination('');setSelected([]);setIndices({});setViewed({cedar:[0],b:[0]});setCompared(['cedar','b']);setNotice('Assignment undone. The sightings are unassigned again.');undo.current=null;}
- const displayed=compared.map(candidate).filter(Boolean);
- return <div className="compare-app">
-  <header className="topbar"><a className="brand" href="/comparison.html"><span className="brand-mark">◒</span> Only Bears</a><span className="prototype-tag">INTERACTIVE PROTOTYPE</span><span className="demo-description">Demo records · real field photos · changes stay in this tab</span><button onClick={reset}>Reset demo</button></header>
+
+export default function Comparison() {
+ const [matchIndex,setMatchIndex] = useState(0);
+ const [photoIndex,setPhotoIndex] = useState(0);
+ const [enlarged,setEnlarged] = useState(false);
+ const match = matches[matchIndex];
+ const reference = match.photos[photoIndex];
+ function chooseMatch(index:number) { setMatchIndex(index); setPhotoIndex(0); }
+ const pair = <div className="photo-pair">
+  <figure><figcaption><strong>Your sighting</strong><span>Unidentified</span></figcaption><div className="image-surface"><Picture photo={current}/></div></figure>
+  <figure><figcaption><strong>{match.label}</strong><span>{match.kind==='bear'?`${match.photos.length} photos`:'Unidentified'} · similarity {match.similarity?.toFixed(3)}</span></figcaption><div className="image-surface"><Picture photo={reference}/></div></figure>
+ </div>;
+ return <div className="simple-viewer">
+  <header><strong>Only Bears</strong><span>Comparison prototype · demo matches & scores</span></header>
   <main>
-   <div className="page-heading"><h1>Identify sightings</h1><span className="reviewing-badge">{saved?'Saved in demo':kept?'Reviewed · unassigned':'Reviewing sighting A'}</span></div>
-   {notice&&<div className="notice" role="status"><span>{notice}</span><button className="icon-button" onClick={()=>setNotice('')} aria-label="Dismiss notice">×</button></div>}
-   <section className="sighting-selection" aria-label="Sightings to assign"><div><h2>1. Select photos to identify together</h2><p>Leave uncertain photos unchecked. Nothing is saved until you confirm.</p></div><div className="selection-strip"><div className="selection-item mandatory"><PhotoImage photo={current}/><span>Sighting A <small>Current photo</small></span><span>✓</span></div>{candidates.filter(c=>c.kind==='sighting').map(c=><label className={`selection-item ${selected.includes(c.id)?'included':''}`} key={c.id}><PhotoImage photo={c.photos[0]}/><span>{c.label}<small>Unassigned</small></span><input aria-label={`Include ${c.label}`} type="checkbox" disabled={saved} checked={selected.includes(c.id)} onChange={()=>toggleSelected(c.id)}/></label>)}</div>  <div className="draft-bar"><div className="draft-title"><span className="eyebrow">SELECTED PHOTOS</span><strong>{saved?'Saved in this demo':`${additions.length} sighting${additions.length===1?'':'s'} selected`}</strong></div><label className="destination-field">Identify as<select aria-label="Assignment destination" disabled={saved} value={destination} onChange={e=>{setDestination(e.target.value);setKept(false);}}><option value="">Choose a bear…</option><option value="new">＋ New unnamed bear</option>{candidates.filter(c=>c.kind==='bear').map(c=><option key={c.id} value={c.id}>{c.label} · {c.photos.length} photos</option>)}</select></label><div className="draft-actions">{saved&&<button onClick={undoSave}>Undo assignment</button>}<button disabled={saved} onClick={()=>{setSelected([]);setDestination('');setKept(true);setNotice('Review saved in this demo. Sighting A stays unassigned and available for comparison.');}}>Keep unassigned</button><button className="primary" disabled={!destination||saved} onClick={()=>setReviewing(true)}>Review & confirm <span>→</span></button></div></div></section>
-   <section className="candidate-section" aria-label="Candidate selection"><div className="section-top"><h2>2. Compare matches <span>Similarity ↓</span></h2><div className="candidate-tools"><div className="segmented" aria-label="Filter candidates">{[['all','All'],['bear','Bear records'],['sighting','Unassigned']].map(([v,l])=><button key={v} className={filter===v?'active':''} onClick={()=>setFilter(v)} aria-pressed={filter===v}>{l}</button>)}</div><input aria-label="Search candidates" placeholder="Find a bear or sighting…" value={search} onChange={e=>setSearch(e.target.value)}/></div></div>
-    <p className="score-note">Demo similarity scores · highest first · not identity probability</p><div className="candidate-tray">{visible.map(c=><button key={c.id} className={`candidate-tile ${compared.includes(c.id)?'is-open':''}`} onClick={()=>toggleCompare(c.id)} aria-pressed={compared.includes(c.id)} aria-label={`${compared.includes(c.id)?'Remove':'Compare'} ${c.label}`}><PhotoImage photo={c.photos[0]}/><span><strong>{c.label}</strong><small>{c.kind==='bear'?`Bear record · ${c.photos.length} photos`:'Unassigned · 1 photo'}</small><small className="similarity-score">Similarity {c.similarity?.toFixed(3)??'—'}</small></span><span className="tile-action">{compared.includes(c.id)?'✓':'+'}</span></button>)}{!visible.length&&<p className="muted">No matches for this search.</p>}</div>
-   </section>
-   <section className="comparison-section" aria-label="Side by side comparison"><div className="section-top"><h2>Side by side <span>{displayed.length} / 3 candidates</span></h2><div className="compare-hint">Click any image to inspect.{displayed.length>1&&<button className="text-button" onClick={()=>openZoom([current,...displayed.map(c=>c.photos[Math.min(indices[c.id]||0,c.photos.length-1)])])}>Full screen ↗</button>}</div></div>
-    <div className="comparison-grid" style={{gridTemplateColumns:`repeat(${1+Math.max(1,displayed.length)}, minmax(260px, 1fr))`}}>
-     <article className="photo-panel current-panel"><div className="panel-title"><div><span className="eyebrow">CURRENT SIGHTING</span><h3>Sighting A</h3></div><span className="pin-label">Pinned</span></div><button className="large-photo" onClick={()=>openZoom([current])} aria-label="Enlarge current sighting"><PhotoImage photo={current}/><span className="enlarge-label">⤢ Enlarge</span></button><div className="panel-details"><span className="state-label">{saved?'Assigned in demo':'Unassigned sighting'}</span></div></article>
-     {displayed.map(c=>{const i=Math.min(indices[c.id]||0,c.photos.length-1);return <article className="photo-panel" key={c.id}><div className="panel-title"><div><span className="eyebrow">{c.kind==='bear'?'BEAR RECORD':'UNASSIGNED SIGHTING'}</span><h3>{c.label}</h3></div><button className="icon-button" onClick={()=>toggleCompare(c.id)} aria-label={`Close ${c.label}`}>×</button></div><button className="large-photo" onClick={()=>openZoom([current,c.photos[i]])} aria-label={`Enlarge comparison with ${c.label}`}><PhotoImage photo={c.photos[i]}/><span className="enlarge-label">⤢ Inspect</span></button>
-      <div className="gallery-controls"><button disabled={i===0} onClick={()=>selectReference(c.id,i-1)} aria-label={`Previous photo of ${c.label}`}>←</button><span>Photo {i+1} of {c.photos.length}</span><button disabled={i===c.photos.length-1} onClick={()=>selectReference(c.id,i+1)} aria-label={`Next photo of ${c.label}`}>→</button></div>
-      <div className="reference-strip">{c.photos.map((p,j)=><button key={p.id} aria-label={`${c.label} photo ${j+1}`} aria-pressed={i===j} className={i===j?'selected':''} onClick={()=>selectReference(c.id,j)}><PhotoImage photo={p}/>{(viewed[c.id]||[0]).includes(j)&&<span className="seen-dot"/>}</button>)}</div>
-      <div className="panel-bottom">{c.kind==='bear'?<><div className="gallery-summary"><button className="text-button" onClick={()=>setGallery(c.id)}>View all {c.photos.length} photos</button><small>{(viewed[c.id]||[0]).length} viewed</small></div><button className={`choose-button ${destination===c.id?'chosen':''}`} disabled={saved} onClick={()=>{setDestination(c.id);setKept(false);}}>{destination===c.id?`✓ ${c.label} selected`:`Choose ${c.label}`}</button></>:<><p className="small-note">Unassigned · select only if you are confident.</p><label className={`include-control ${selected.includes(c.id)?'included':''}`}><input type="checkbox" checked={selected.includes(c.id)} disabled={saved} onChange={()=>toggleSelected(c.id)}/> Add this photo to selection</label></>}</div>
-     </article>;})}
-     {!displayed.length&&<div className="empty-comparison"><span>＋</span><h3>Bring a candidate into view</h3><p>Choose a bear record or an unassigned sighting above.</p></div>}
-    </div>
-
-   </section>
-
+   <div className="viewer-heading"><h1>Compare photos</h1><button onClick={()=>setEnlarged(true)}>Enlarge photos ↗</button></div>
+   {pair}
+   <div className="below-photos"><p>Your sighting stays here while you browse matches.</p><div className="reference-gallery">
+    {match.photos.length>1?<><div className="gallery-heading"><span>All photos of {match.label}</span><div><button aria-label="Previous reference photo" disabled={photoIndex===0} onClick={()=>setPhotoIndex(photoIndex-1)}>←</button><span>{photoIndex+1} / {match.photos.length}</span><button aria-label="Next reference photo" disabled={photoIndex===match.photos.length-1} onClick={()=>setPhotoIndex(photoIndex+1)}>→</button></div></div><div className="reference-strip">{match.photos.map((photo,index)=><button key={photo.id} aria-label={`${match.label} photo ${index+1}`} aria-pressed={photoIndex===index} onClick={()=>setPhotoIndex(index)}><Picture photo={photo}/></button>)}</div></>:<p>This sighting has one photo.</p>}
+   </div></div>
+   <section aria-label="Similar sightings"><div className="matches-heading"><h2>Similar sightings</h2><span>Highest similarity first</span></div><div className="match-strip">{matches.map((candidate,index)=><button key={candidate.id} aria-label={`Compare ${candidate.label}`} aria-pressed={matchIndex===index} onClick={()=>chooseMatch(index)}><Picture photo={candidate.photos[0]}/><span><strong>{candidate.label}</strong><small>{candidate.photos.length} photo{candidate.photos.length===1?'':'s'} · {candidate.similarity?.toFixed(3)}</small></span></button>)}</div></section>
   </main>
-
-  {gallery&&<Modal wide title={`${candidate(gallery).label} · complete gallery`} onClose={()=>setGallery(null)}><p className="muted">All {candidate(gallery).photos.length} assigned photos. Choose one to inspect beside your current sighting.</p><div className="contact-sheet">{candidate(gallery).photos.map((p,i)=><button key={p.id} onClick={()=>{selectReference(gallery,i);setGallery(null);}}><PhotoImage photo={p}/><span>Photo {i+1} · {p.label}</span></button>)}</div></Modal>}
-  {zoom&&<Modal wide title="Inspect the evidence" onClose={()=>setZoom(null)}><div className="zoom-toolbar"><span>Scroll each image independently when enlarged.</span><label>Zoom <select aria-label="Image zoom" value={zoomScale} onChange={e=>setZoomScale(Number(e.target.value))}><option value={1}>Fit</option><option value={1.5}>150%</option><option value={2}>200%</option><option value={3}>300%</option></select></label></div><div className="zoom-grid" style={{gridTemplateColumns:`repeat(${zoom.length}, minmax(240px,1fr))`}}>{zoom.map((p,i)=><div key={`${p.id}-${i}`}><p className="zoom-caption">{p.label}</p><div className="zoom-viewport"><div style={{width:`${zoomScale*100}%`}}><PhotoImage photo={p}/></div></div></div>)}</div></Modal>}
-  {reviewing&&<Modal wide title="Confirm these photos belong to one bear" onClose={()=>setReviewing(false)} actions={<><button onClick={()=>setReviewing(false)}>Back to comparison</button><button className="primary" onClick={save}>{destination==='new'?`Create unnamed bear with ${additions.length} sighting${additions.length===1?'':'s'}`:`Add ${additions.length} sighting${additions.length===1?'':'s'} to ${chosen!.label}`}</button></>}><div className="review-intro"><h2>{destination==='new'?'Create a new unnamed bear':`Add sightings to ${chosen!.label}`}</h2><p>This records that every photo below depicts one individual. Leave out any sighting you cannot confidently assign.</p><span className="prototype-tag">SIMULATED SAVE · YOUR COLLECTION IS UNCHANGED</span></div>{chosen&&<><h3>Already assigned · {chosen.photos.length} photos</h3><div className="review-gallery">{chosen.photos.map(p=><button key={p.id} onClick={()=>openZoom([current,p])} aria-label={`Inspect existing ${p.label}`}><PhotoImage photo={p}/></button>)}</div></>}<h3>{destination==='new'?'Sightings in the new record':'Sightings being added'} · {additions.length}</h3><div className="review-additions">{additions.map((p,i)=><div key={p.id}><button onClick={()=>openZoom([p])} aria-label={`Inspect addition ${p.label}`}><PhotoImage photo={p}/></button><div><strong>{p.label}</strong>{i===0?<small>Current sighting</small>:<button className="text-button" onClick={()=>setSelected(v=>v.filter(id=>id!==selected[i-1]))}>Remove</button>}</div></div>)}</div><p className="small-note">Other bear records remain separate. Unselected sightings remain unassigned.</p></Modal>}
+  <Dialog open={enlarged} onClose={()=>setEnlarged(false)} fullWidth maxWidth="xl" PaperProps={{className:'enlarged-view'}}><DialogTitle><span>Compare photos</span><button onClick={()=>setEnlarged(false)}>Close</button></DialogTitle><DialogContent>{pair}</DialogContent></Dialog>
  </div>;
 }
