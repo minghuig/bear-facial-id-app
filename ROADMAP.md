@@ -18,7 +18,7 @@ The hosted account implementation lives on `codex/mvp-accounts`; it is not yet m
 Keep the scope small: individual Google accounts, one permission level, and equal access to photos within an organization.
 
 - [ ] Complete real-user sign-in and organization-switching checks.
-- [ ] Finish the welcoming sign-in page using the existing logo and a field photo.
+- [x] Ship the welcoming sign-in page using the existing logo and a field photo.
 - [ ] Add photo deletion, including safe handling of jobs still processing that photo and removal of stored objects.
 - [ ] Bring the deployed account changes into the main development line.
 - [ ] Evaluate the comparison/review prototype with users before integrating it.
