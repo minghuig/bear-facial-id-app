@@ -2,7 +2,7 @@
 
 A shared photo library for identifying individual bears. Upload field photos, find bear heads automatically, and compare them with confirmed reference photos. People make the final identity decisions; model suggestions help with the review.
 
-**[Open the app](https://d1u7h1fs60yvpr.cloudfront.net/)** · Invite-only Google sign-in
+**[Open the app](https://d1u7h1fs60yvpr.cloudfront.net/)** · Invite-only Google sign-in · **[Roadmap](ROADMAP.md)**
 
 ## How it works
 
