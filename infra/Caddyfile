@@ -4,7 +4,9 @@
 }
 :8080 {
     @private path /internal /internal/* /docs /docs/* /redoc /openapi.json /health
-    respond @private 404
+    handle @private {
+        respond 404
+    }
     @backend path /api/* /auth/*
     handle @backend {
         header Cache-Control "private, no-store"
