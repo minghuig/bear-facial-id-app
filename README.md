@@ -13,6 +13,14 @@ A shared photo library for identifying individual bears. Upload field photos, fi
 
 The library supports search, status and bear filters, and pagination. The **Bears** tab shows identities and their reference photos. A similarity score is a ranking aid, not a probability that an identification is correct.
 
+## Research foundation and credits
+
+Only Bears builds on the pose-aware brown-bear re-identification research of **Beth Rosenberg, Mu Zhou, Nathan Wolf, Mackenzie Weygandt Mathis, Bradley P. Harris, and Alexander Mathis**:
+
+> Rosenberg, B., Zhou, M., Wolf, N., Weygandt Mathis, M., Harris, B. P., & Mathis, A. (2026). “[Individual identification of brown bears using pose-aware metric learning](https://doi.org/10.1016/j.cub.2025.12.022).” *Current Biology*, 36(3), 645–659.e14. [PubMed](https://pubmed.ncbi.nlm.nih.gov/41558480/).
+
+The recognition worker includes adapted PoseSwin code from the Mathis Lab’s official [BrownBear_ReID repository](https://github.com/amathislab/BrownBear_ReID). We gratefully acknowledge the paper’s authors and the repository’s contributors for making this work available. See [Acknowledgements and research provenance](ACKNOWLEDGMENTS.md) for the pinned source revision, scope, and licensing notes.
+
 ## Shared access
 
 Each person signs in with their own invited Google account. Members of an organization share its photos, bears, and reviews with equal access. The hosted app has two separate libraries: **Internal Testing** and **McNeil**. Members of both can switch organizations in the app.
@@ -98,3 +106,4 @@ Before committing, stage only intended files, inspect `git diff --cached`, and r
 - [Progress and historical implementation notes](docs/PROGRESS.md)
 - [Original tracer-bullet plan](TRACER_BULLET_PLAN.md)
 - [Model provenance and AWS validation](docs/INFERENCE.md) — describes the original AWS validation workflow; local CPU development is documented separately above.
+- [Acknowledgements and research provenance](ACKNOWLEDGMENTS.md)

@@ -5,7 +5,7 @@ html, body, #root { height: 100%; }
 #root { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 .app-content { flex: 1; min-height: 0; display: flex !important; flex-direction: column; }
 .workspace-stack { flex: 1; min-height: 0; }
-.workspace-toolbar, .workspace-help { flex-shrink: 0; }
+.workspace-toolbar, .workspace-footer { flex-shrink: 0; }
 button, summary { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, summary:focus-visible { outline: 3px solid #407963; outline-offset: 3px; }
 .workspace-toolbar, .section-heading, .head-navigation, .assign-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -51,7 +51,12 @@ button:focus-visible, summary:focus-visible { outline: 3px solid #407963; outlin
 .compact-details { color: #5b665f; font-size: 12px; line-height: 1.6; }
 .compact-details summary { cursor: pointer; padding: 8px 0; width: fit-content; font-weight: 500; }
 .compact-details p { margin: 4px 0 10px; max-width: 760px; }
-.workspace-help { border-top: 1px solid #dce2dc; padding-top: 4px; }
+.workspace-footer { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border-top: 1px solid #dce2dc; padding-top: 4px; }
+.workspace-help { flex: 1; min-width: 0; }
+.credits-link.MuiButton-root { flex-shrink: 0; margin-top: 2px; color: #52655a; }
+.research-credits { display: grid; gap: 16px; padding-top: 4px; }
+.research-credits p { margin: 0; line-height: 1.65; }
+.research-citation { color: #5b665f; }
 .empty-state { padding: 64px 24px; text-align: center; border: 1px dashed #cbd5c9; border-radius: 8px; }
 .empty-state p { margin-top: 8px; }
 .muted { color: #5b665f; font-size: 13px; padding: 0 10px; }
@@ -108,7 +113,8 @@ button:focus-visible, summary:focus-visible { outline: 3px solid #407963; outlin
 .signin-button > span:last-child { margin-left: auto; }
 .signin-google { background: white; color: #315a46; border-radius: 50%; width: 25px; height: 25px; display: grid; place-items: center; font-weight: 800; }
 .signin-invite { margin-top: 16px; font-size: 12px; color: #73806e; text-align: center; }
-.signin-footer { font-size: 12px; color: #798271; }
+.signin-footer { display: grid; gap: 5px; font-size: 12px; color: #798271; }
+.signin-footer a { color: #526b5c; text-underline-offset: 2px; }
 .signin-photo { margin: 0; min-height: 580px; position: relative; overflow: hidden; border-radius: 140px 24px 24px 24px; background: #c9c5b1; }
 .signin-photo > img { position: absolute; width: 100%; height: 100%; object-fit: cover; object-position: 44% center; }
 .signin-photo::after { content: ''; position: absolute; inset: 45% 0 0; background: linear-gradient(transparent, #172b20a6); }

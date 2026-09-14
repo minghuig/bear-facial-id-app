@@ -3,7 +3,13 @@ Commit: 4a9f5be8a57c7493096cab1b114dcd71489a3dbe
 Subset: PoseGuidedReID/project/models; upstream hashes in SOURCE_HASHES.json.
 Local modification: build_swint.py imports optional Swin V2 only when selected,
 so the deployed Swin V1 model does not require unused V2 dependencies.
-Attribution: BrownBear_ReID authors / amathislab. Preserve upstream inline attribution.
+Authors: Beth Rosenberg, Mu Zhou, Nathan Wolf, Mackenzie W. Mathis,
+Bradley P. Harris, and Alexander Mathis.
+Paper: "Individual identification of brown bears using pose-aware metric learning,"
+Current Biology 36(3), 645-659.e14 (2026).
+DOI: https://doi.org/10.1016/j.cub.2025.12.022
+PubMed: https://pubmed.ncbi.nlm.nih.gov/41558480/
+Preserve this notice and upstream inline attribution.
 No code LICENSE file was present at this commit. Dataset README declares CC BY-NC 4.0;
 checkpoint terms are unspecified. Resolve code/checkpoint permissions before staff rollout.
 This private research tracer does not settle those licensing questions.

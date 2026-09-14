@@ -6,6 +6,7 @@ import './styles.css';
 import {SignInPage} from './SignInPage';
 import {PhotoBrowser} from './PhotoBrowser';
 import LiveComparison from './LiveComparison';
+import {ResearchCredits} from './ResearchCredits';
 
 const qc = new QueryClient();
 let csrfToken='';
@@ -41,7 +42,7 @@ function App({identity}:{identity:Identity}){
  const [tab,setTab]=useState(0),[selected,setSelected]=useState(''),[index,setIndex]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
  const [pendingUploads,setPendingUploads]=useState<{name:string;url:string}[]>([]);
  const [uploadCount,setUploadCount]=useState(0),[noticeSeverity,setNoticeSeverity]=useState<'success'|'warning'|'error'>('success');
- const [bearChoice,setBearChoice]=useState(''),[dialog,setDialog]=useState<'create'|'rename'|null>(null),[name,setName]=useState(''),[bearView,setBearView]=useState('');
+ const [bearChoice,setBearChoice]=useState(''),[dialog,setDialog]=useState<'create'|'rename'|null>(null),[name,setName]=useState(''),[bearView,setBearView]=useState(''),[creditsOpen,setCreditsOpen]=useState(false);
  const health=useQuery({queryKey:[identity.org_id,'health'],queryFn:()=>api<{pipeline:string;commit:string;environment:string}>('/api/status')});
  const photos=useQuery({queryKey:[identity.org_id,'photos'],queryFn:()=>api<Photo[]>('/api/photos'),refetchInterval:3000});
  const bears=useQuery({queryKey:[identity.org_id,'bears'],queryFn:()=>api<Bear[]>('/api/bears')});
@@ -145,10 +146,11 @@ function App({identity}:{identity:Identity}){
        {bears.data?.map(b=><button type="button" className="collection-item" key={b.id} aria-current={bearView===b.id?'true':undefined} onClick={()=>setBearView(b.id)}><span className="bear-avatar" aria-hidden="true">{b.thumbnail_url?<img src={b.thumbnail_url} alt="" loading="lazy"/>:'—'}</span><span className="item-name">{label(b)}</span></button>)}</div>{!bears.data?.length&&<p className="muted">Create a bear while reviewing a head.</p>}</aside>
      {bearView?<section className="reference-panel"><div className="section-heading"><Typography component="h2" variant="h6" sx={{overflowWrap:'anywhere'}}>{label(bears.data?.find(b=>b.id===bearView)||{id:bearView,name:null})}</Typography><Button onClick={()=>{setName(bears.data?.find(b=>b.id===bearView)?.name||'');setDialog('rename');}}>Edit name</Button></div><Typography variant="body2" color="text.secondary">Confirmed usable heads with valid embeddings become references.</Typography><div className="reference-grid">{refs.data?.map((h,i)=><img key={h.id} src={h.crop_url} alt={`Confirmed reference ${i+1}`}/>)}</div>{refs.error&&<Alert severity="error">{String(refs.error)}</Alert>}{refs.isPending?<Typography color="text.secondary">Loading references…</Typography>:!refs.data?.length&&!refs.error&&<Typography color="text.secondary">No eligible references for this bear yet.</Typography>}</section>:<div className="empty-state"><Typography component="h2" variant="h6">Select a bear to view references</Typography><Typography color="text.secondary">Bear identities stay the same when names change.</Typography></div>}
     </div>}
-    <details className="compact-details workspace-help"><summary>How review works</summary><p>Upload JPEG or PNG photos. Detection and recognition run automatically; review each head and confirm its identity. Confirming a usable head with a valid embedding creates a reference for later matching.</p><p>Leave uncertain heads unresolved. Matching quality is experimental; no identity is assigned automatically. Head detection uses oriented originals with no body detector or crop margin. One shared collection; bear IDs stay stable when names change.</p></details>
+    <div className="workspace-footer"><details className="compact-details workspace-help"><summary>How review works</summary><p>Upload JPEG or PNG photos. Detection and recognition run automatically; review each head and confirm its identity. Confirming a usable head with a valid embedding creates a reference for later matching.</p><p>Leave uncertain heads unresolved. Matching quality is experimental; no identity is assigned automatically. Head detection uses oriented originals with no body detector or crop margin. One shared collection; bear IDs stay stable when names change.</p></details><Button className="credits-link" onClick={()=>setCreditsOpen(true)}>Research & credits</Button></div>
    </Stack>
   </Container>
   <Dialog open={!!dialog} onClose={()=>setDialog(null)} fullWidth maxWidth="xs"><DialogTitle>{dialog==='create'?'Create a distinct bear':'Edit display name'}</DialogTitle><DialogContent><TextField fullWidth autoFocus label="Display name (optional)" value={name} inputProps={{maxLength:120}} onChange={e=>setName(e.target.value)} sx={{mt:1}}/><Typography variant="body2" color="text.secondary" sx={{mt:1}}>Leave blank for an unnamed identity. “Unknown” is not a shared identity.</Typography></DialogContent><DialogActions><Button onClick={()=>setDialog(null)}>Cancel</Button><Button disabled={busy} onClick={()=>act(async()=>{if(dialog==='create'){const b=await api<Bear>('/api/bears','POST',{name:name||null});await api(`/api/heads/${head!.id}/review`,'POST',{state:'confirmed',bear_id:b.id});}else await api(`/api/bears/${bearView}`,'PATCH',{name:name||null});setDialog(null);})}>Save</Button></DialogActions></Dialog>
+  <Dialog open={creditsOpen} onClose={()=>setCreditsOpen(false)} fullWidth maxWidth="sm"><DialogTitle>Research & credits</DialogTitle><DialogContent><ResearchCredits/></DialogContent><DialogActions><Button onClick={()=>setCreditsOpen(false)}>Close</Button></DialogActions></Dialog>
  </div>
  {comparison&&<LiveComparison key={comparison.headId} {...comparison} orgId={identity.org_id} api={api} bears={bears.data||[]} onBack={()=>setComparison(null)} onChanged={()=>{void qc.invalidateQueries();}}/>}
  </>;

@@ -1,4 +1,5 @@
 import {Alert, Button} from '@mui/material';
+import {ResearchCreditLinks} from './ResearchCredits';
 
 export function SignInPage(){
  return <main className="signin-page">
@@ -13,7 +14,7 @@ export function SignInPage(){
      <Button className="signin-button" variant="contained" href="/auth/login"><span className="signin-google" aria-hidden="true">G</span>Continue with Google<span aria-hidden="true">↗</span></Button>
      <div className="signin-invite">Your team's private library · Invitation required</div>
     </div>
-    <div className="signin-footer">Made for curious humans. And very good bears.</div>
+    <div className="signin-footer"><span>Made for curious humans. And very good bears.</span><ResearchCreditLinks/></div>
    </section>
    <figure className="signin-photo">
     <img src="/welcome-bear.jpg" alt="A brown bear resting its head on its paws beside a rocky stream" fetchPriority="high"/>
