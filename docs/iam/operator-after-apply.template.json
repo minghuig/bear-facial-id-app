@@ -1,0 +1,114 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "StartStopOnlyApprovedInstance",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:StartInstances",
+        "ec2:StopInstances"
+      ],
+      "Resource": [
+        "arn:aws:ec2:us-east-2:102913100078:instance/INSTANCE_ID_AFTER_APPLY"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-2"
+        }
+      }
+    },
+    {
+      "Sid": "RunReleaseOnlyOnApprovedInstance",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:SendCommand"
+      ],
+      "Resource": [
+        "arn:aws:ec2:us-east-2:102913100078:instance/INSTANCE_ID_AFTER_APPLY",
+        "arn:aws:ssm:us-east-2::document/AWS-RunShellScript"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-2"
+        }
+      }
+    },
+    {
+      "Sid": "ForwardOnlyApprovedInstance",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:StartSession"
+      ],
+      "Resource": [
+        "arn:aws:ec2:us-east-2:102913100078:instance/INSTANCE_ID_AFTER_APPLY",
+        "arn:aws:ssm:us-east-2::document/AWS-StartPortForwardingSession"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-2"
+        }
+      }
+    },
+    {
+      "Sid": "ManageOwnSessions",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:ResumeSession",
+        "ssm:TerminateSession",
+        "ssmmessages:OpenDataChannel"
+      ],
+      "Resource": [
+        "arn:aws:ssm:us-east-2:102913100078:session/${aws:username}-*",
+        "arn:aws:ssm:us-east-2:102913100078:session/${aws:userid}-*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-2"
+        }
+      }
+    },
+    {
+      "Sid": "ReadReleaseAndSessionStatus",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetCommandInvocation",
+        "ssm:ListCommandInvocations",
+        "ssm:ListCommands",
+        "ssm:DescribeSessions",
+        "ssm:DescribeInstanceInformation",
+        "ssm:GetConnectionStatus"
+      ],
+      "Resource": [
+        "*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-2"
+        }
+      }
+    },
+    {
+      "Sid": "ListProjectBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": [
+        "arn:aws:s3:::only-bears-102913100078-us-east-2"
+      ]
+    },
+    {
+      "Sid": "UploadReadProjectInputsAndReleases",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:AbortMultipartUpload"
+      ],
+      "Resource": [
+        "arn:aws:s3:::only-bears-102913100078-us-east-2/*"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,179 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "OhioNetworkAndStorageSetup",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateVpc",
+        "ec2:ModifyVpcAttribute",
+        "ec2:CreateSubnet",
+        "ec2:ModifySubnetAttribute",
+        "ec2:CreateInternetGateway",
+        "ec2:AttachInternetGateway",
+        "ec2:CreateRouteTable",
+        "ec2:CreateRoute",
+        "ec2:AssociateRouteTable",
+        "ec2:CreateSecurityGroup",
+        "ec2:RevokeSecurityGroupEgress",
+        "ec2:AuthorizeSecurityGroupEgress",
+        "ec2:CreateVolume",
+        "ec2:AttachVolume",
+        "ec2:CreateTags"
+      ],
+      "Resource": [
+        "arn:aws:ec2:us-east-2:102913100078:vpc/*",
+        "arn:aws:ec2:us-east-2:102913100078:subnet/*",
+        "arn:aws:ec2:us-east-2:102913100078:internet-gateway/*",
+        "arn:aws:ec2:us-east-2:102913100078:route-table/*",
+        "arn:aws:ec2:us-east-2:102913100078:security-group/*",
+        "arn:aws:ec2:us-east-2:102913100078:volume/*",
+        "arn:aws:ec2:us-east-2:102913100078:instance/*",
+        "arn:aws:ec2:us-east-2:102913100078:network-interface/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-2"
+        }
+      }
+    },
+    {
+      "Sid": "LaunchReviewedFreePlanInstance",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances"
+      ],
+      "Resource": [
+        "arn:aws:ec2:us-east-2:102913100078:instance/*",
+        "arn:aws:ec2:us-east-2:102913100078:network-interface/*",
+        "arn:aws:ec2:us-east-2:102913100078:volume/*",
+        "arn:aws:ec2:us-east-2:102913100078:subnet/*",
+        "arn:aws:ec2:us-east-2:102913100078:security-group/*",
+        "arn:aws:ec2:us-east-2::image/ami-06f5453d29c62393b"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-2"
+        },
+        "StringEqualsIfExists": {
+          "ec2:InstanceType": "m7i-flex.large"
+        }
+      }
+    },
+    {
+      "Sid": "CreateNamedPrivateBucketInOhio",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::only-bears-102913100078-us-east-2"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "s3:LocationConstraint": "us-east-2"
+        }
+      }
+    },
+    {
+      "Sid": "ConfigureNamedPrivateBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutEncryptionConfiguration",
+        "s3:PutBucketPolicy"
+      ],
+      "Resource": [
+        "arn:aws:s3:::only-bears-102913100078-us-east-2"
+      ]
+    },
+    {
+      "Sid": "CreateNamedRegistries",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:CreateRepository",
+        "ecr:PutImageScanningConfiguration",
+        "ecr:PutImageTagMutability"
+      ],
+      "Resource": [
+        "arn:aws:ecr:us-east-2:102913100078:repository/only-bears/api",
+        "arn:aws:ecr:us-east-2:102913100078:repository/only-bears/detector",
+        "arn:aws:ecr:us-east-2:102913100078:repository/only-bears/recognition"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-2"
+        }
+      }
+    },
+    {
+      "Sid": "CreateNamedLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:PutRetentionPolicy"
+      ],
+      "Resource": [
+        "arn:aws:logs:us-east-2:102913100078:log-group:/only-bears",
+        "arn:aws:logs:us-east-2:102913100078:log-group:/only-bears:*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-2"
+        }
+      }
+    },
+    {
+      "Sid": "CreateNamedHostIdentity",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:PutRolePolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::102913100078:role/only-bears"
+      ]
+    },
+    {
+      "Sid": "CreateNamedProfile",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateInstanceProfile",
+        "iam:AddRoleToInstanceProfile"
+      ],
+      "Resource": [
+        "arn:aws:iam::102913100078:instance-profile/only-bears"
+      ]
+    },
+    {
+      "Sid": "AttachOnlyStandardSSMPolicy",
+      "Effect": "Allow",
+      "Action": [
+        "iam:AttachRolePolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::102913100078:role/only-bears"
+      ],
+      "Condition": {
+        "ArnEquals": {
+          "iam:PolicyARN": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+        }
+      }
+    },
+    {
+      "Sid": "PassOnlyHostRoleToEC2",
+      "Effect": "Allow",
+      "Action": [
+        "iam:PassRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::102913100078:role/only-bears"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "ec2.amazonaws.com"
+        }
+      }
+    }
+  ]
+}
