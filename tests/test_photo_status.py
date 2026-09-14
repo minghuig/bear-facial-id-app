@@ -12,8 +12,10 @@ def test_status_tracks_explicit_decisions_and_reassignment(api):
     bear = client.post('/api/bears', json={'name':'Test Bear'}).json()
     assert client.post(f"/api/heads/{heads[1]['id']}/review", json={'state':'confirmed','bear_id':bear['id']}).status_code == 200
     assert label() == 'Reviewed · 1 confirmed, 1 unidentified'
+    assert client.get('/api/photos').json()[0]['bear_ids'] == [bear['id']]
     client.post(f"/api/heads/{heads[1]['id']}/review", json={'state':'unresolved'})
     assert label() == 'Reviewed · 2 unidentified'
+    assert client.get('/api/photos').json()[0]['bear_ids'] == []
 
 
 def test_processing_and_empty_photo_labels(api):

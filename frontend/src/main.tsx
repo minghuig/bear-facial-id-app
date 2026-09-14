@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import {QueryClient, QueryClientProvider, useQuery} from '@tanstack/react-query';
 import {Alert, AppBar, Button, Card, CardContent, Chip, CircularProgress, Container, CssBaseline, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Select, Stack, Tab, Tabs, TextField, ThemeProvider, Toolbar, Typography, createTheme} from '@mui/material';
 import './styles.css';
+import {PhotoBrowser} from './PhotoBrowser';
 
 const qc = new QueryClient();
 const theme = createTheme({
@@ -25,7 +26,7 @@ async function api<T>(path:string,method='GET',body?:unknown):Promise<T>{
 type Bear={id:string;name:string|null;thumbnail_url?:string|null};
 type Candidate={bear_id:string;name:string|null;reference_id:string;cosine:number};
 type Head={id:string;index:number;box:number[];crop_url:string;recognition_state:string;review_state:string;bear_id:string|null;error:string|null;suggestions:{id:string;created_at:string;gallery_revision:number;candidates:Candidate[]}[]};
-type Photo={id:string;filename:string;image_url:string;thumbnail_url:string;width:number;height:number;detection_state:string;pipeline:string;status_label?:string};
+type Photo={id:string;filename:string;image_url:string;thumbnail_url:string;width:number;height:number;detection_state:string;pipeline:string;status_label?:string;created_at?:string;bear_ids?:string[]};
 type Detail=Photo&{heads:Head[];jobs:{id:string;stage:string;state:string;error:string|null;attempts:number}[]};
 const label=(b:Bear)=>b.name||`Unnamed bear · ${b.id.slice(0,8)}`;
 function App(){
@@ -83,17 +84,7 @@ function App(){
     </div>
     {health.data?.pipeline.startsWith('mock')&&<Typography variant="body2" color="text.secondary">Mock results for development · separate from real inference.</Typography>}
     {tab===0?<div className="photo-workspace">
-     <aside className="collection-list" aria-label="Photos">
-      <div className="section-label">Photos <span>{photos.data?.length??0}</span></div>
-      <div className="collection-items">
-       {pendingUploads.map(p=><div key={p.url} className="collection-item" aria-busy="true"><img src={p.url} alt=""/><span className="item-copy"><span className="item-name">{p.name}</span><span className="item-state">Uploading…</span></span><CircularProgress size={16}/></div>)}
-       {photos.data?.map(p=><button type="button" key={p.id} className="collection-item" aria-current={selected===p.id?'true':undefined} onClick={()=>{setSelected(p.id);setIndex(0);setBearChoice('');}}>
-        <img src={p.thumbnail_url} alt="" loading="lazy" decoding="async"/>
-        <span className="item-copy"><span className="item-name" title={p.filename}>{p.filename}</span><span className="item-state">{p.status_label||(p.detection_state==='complete'?'Ready to Review':p.detection_state==='failed'?'Detection failed':'Detecting Bears…')}</span></span>
-       </button>)}
-      </div>
-      {!photos.data?.length&&<p className="muted">{photos.isPending?'Loading photos…':'Upload a JPEG or PNG to begin.'}</p>}
-     </aside>
+     <PhotoBrowser photos={photos.data||[]} bears={bears.data||[]} selected={selected} onSelect={id=>{setSelected(id);setIndex(0);setBearChoice('');}} pending={pendingUploads} loading={photos.isPending}/>
      {!selected&&<div className="empty-state"><Typography component="h2" variant="h6">Select a photo to review</Typography><Typography color="text.secondary">Review detected heads, then match against confirmed bears.</Typography></div>}
      {selected&&detail.isPending&&<p className="muted">Loading photo…</p>}
      {detail.data&&<section className="photo-detail" aria-label="Photo review">

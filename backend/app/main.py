@@ -69,7 +69,8 @@ def photos(db: DB):
     for head in db.scalars(select(Observation)).all():
         by_photo.setdefault(head.photo_id, []).append(head)
     reviewed_ids = set(db.scalars(select(Review.observation_id).distinct()).all())
-    return [{**photo_json(p), 'status_label': photo_status(p.detection_state, by_photo.get(p.id, []), reviewed_ids)}
+    return [{**photo_json(p), 'status_label': photo_status(p.detection_state, by_photo.get(p.id, []), reviewed_ids),
+             'bear_ids': sorted({h.bear_id for h in by_photo.get(p.id, []) if h.review_state == 'confirmed' and h.bear_id})}
             for p in db.scalars(select(Photo).order_by(Photo.created_at.desc())).all()]
 
 @app.post('/api/photos')
