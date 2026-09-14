@@ -131,7 +131,7 @@ def recognize(photo_id: str, db: DB):
         Observation.review_state.not_in(['ignored','unusable']),
         Observation.recognition_state.in_(['not_requested','failed']))).all()
     if not heads: return {'queued':0}
-    job = Job(photo_id=p.id, stage='recognition', pipeline=p.pipeline, observation_ids=[o.id for o in heads])
+    job = Job(photo_id=p.id, stage='recognition', pipeline=s.pipeline, observation_ids=[o.id for o in heads])
     db.add(job)
     for o in heads: o.recognition_state = 'queued'; o.error = None
     db.commit()
@@ -293,6 +293,9 @@ def result(job_id: str, body: Result, db: DB):
             try:
                 if not h or h.error: raise ValueError(h.error if h else 'Missing head result')
                 vector(h.embedding)
+                # The embedding belongs to the model that produced it; retain
+                # the photo's original detection provenance and completed heads.
+                o.pipeline = job.pipeline
                 o.embedding = h.embedding; o.diagnostics = {**h.diagnostics,'provenance':body.provenance}
                 o.recognition_state = 'complete'; o.error = None
                 if o.review_state == 'confirmed': gallery.revision += 1
