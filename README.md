@@ -103,6 +103,7 @@ Before committing, stage only intended files, inspect `git diff --cached`, and r
 ## More detail
 
 - [Architecture](docs/ARCHITECTURE.md)
+- [Deferred serverless migration plan](docs/SERVERLESS_MIGRATION_PLAN.md) — planned Lambda, Fargate, and Aurora PostgreSQL migration; not yet implemented.
 - [Progress and historical implementation notes](docs/PROGRESS.md)
 - [Original tracer-bullet plan](TRACER_BULLET_PLAN.md)
 - [Model provenance and AWS validation](docs/INFERENCE.md) — describes the original AWS validation workflow; local CPU development is documented separately above.
