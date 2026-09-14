@@ -126,10 +126,10 @@ function App({identity}:{identity:Identity}){
         </div>
         {headRecognizing&&<div className="recognition-status" role="status"><CircularProgress size={24}/><div><strong>{head.recognition_state==='queued'?'Recognition queued':'Recognizing this bear…'}</strong><p>{head.recognition_state==='queued'?'Waiting for the next available worker. You can keep reviewing.':'Comparing this head with identified and unidentified sightings. Results appear here automatically.'}</p></div></div>}
         {head.error&&<Alert severity="error">{head.error}. Run recognition again to retry this eligible head.</Alert>}
-        <Stack direction="row" spacing={.5} useFlexGap flexWrap="wrap">{['unresolved','ignored','unusable'].map(state=><Button key={state} disabled={busy} onClick={()=>review(state)}>{state==='unresolved'?'Leave unidentified':state==='ignored'?'Ignore subject':'Mark unusable'}</Button>)}</Stack>
+        <Stack direction="row" spacing={.5} useFlexGap flexWrap="wrap">{['unresolved','ignored','unusable'].map(state=><Button key={state} disabled={busy} onClick={()=>review(state)}>{state==='unresolved'?(['ignored','unusable'].includes(head.review_state)?'Restore as unidentified':head.bear_id?'Remove identity':'Leave unidentified'):state==='ignored'?'Ignore subject':'Mark unusable'}</Button>)}</Stack>
         {head.recognition_state==='complete'&&<div className="panel-section">
-         <Button variant="contained" disabled={busy} onClick={()=>setComparison({headId:head.id,filename:detail.data!.filename})}>{head.bear_id?'Change identity':'Compare matches'}</Button>
-         <Typography variant="body2" color="text.secondary" sx={{mt:1}}>Compare this sighting with photos of identified and unidentified bears before confirming.</Typography>
+         <Button variant="contained" disabled={busy||['ignored','unusable'].includes(head.review_state)} onClick={()=>setComparison({headId:head.id,filename:detail.data!.filename})}>{head.bear_id?'Change identity':'Compare matches'}</Button>
+         <Typography variant="body2" color="text.secondary" sx={{mt:1}}>{['ignored','unusable'].includes(head.review_state)?'Restore this sighting as unidentified to compare matches.':'Compare this sighting with photos of identified and unidentified bears before confirming.'}</Typography>
         </div>}
         <div className="panel-section">
          <Typography component="h3" variant="subtitle2" sx={{mb:1}}>Assign identity</Typography>

@@ -27,6 +27,7 @@ export default function LiveComparison({headId,filename,bears,orgId,api,onBack,o
  return <section className="live-comparison" aria-label="Compare bear photos">
   <div className="lc-heading"><div><Button onClick={onBack} disabled={busy}>← Back to photos</Button><h1>Compare photos</h1></div><span>{filename}</span></div>
   {(error||query.error)&&<Alert severity="error" action={<Button onClick={()=>{setPending(null);setError('');void query.refetch();}}>Reload matches</Button>}>{error||String(query.error)}</Alert>}
+  {data&&['ignored','unusable'].includes(data.head.review_state)&&<Alert severity="info">This sighting is {data.head.review_state}. Return to the photo and restore it as unidentified before confirming a match.</Alert>}
   {saved&&<Alert severity="success" action={undo?<Button disabled={busy} onClick={()=>void undoMatch()}>Undo</Button>:undefined}>{saved}</Alert>}
   {query.isPending?<p role="status">Loading similar sightings…</p>:data&&<>
    <div className="lc-pair">
@@ -36,7 +37,7 @@ export default function LiveComparison({headId,filename,bears,orgId,api,onBack,o
    {match&&<div className="lc-below"><p>Similarity helps you compare; it is not the probability of a match.</p><div>
     <div className="lc-gallery-heading"><span>{match.kind==='bear'?`Photos of ${match.label}`:'Unidentified sighting'}</span><span>{Math.max(0,match.photos.findIndex(p=>p.id===picture?.id))+1} / {match.photos.length}</span></div>
     <div className="lc-references">{match.photos.map((photo,i)=><button key={photo.id} aria-label={`${match.label} photo ${i+1}`} aria-pressed={picture?.id===photo.id} onClick={()=>setPhotoId(photo.id)}><img src={photo.src} alt="" loading="lazy"/></button>)}</div>
-    <div className="lc-action"><span>{data.head.bear_id?'Only this sighting will move.':'Confident these are the same bear?'}</span><Button variant="contained" disabled={busy||!!query.error||match.bear_id!==null&&match.bear_id===data.head.bear_id} onClick={()=>{setError('');setPending({head:{...data.head},match});}}>{match.bear_id!==null&&match.bear_id===data.head.bear_id?'Current identity':data.head.bear_id?'Change identity':'Confirm same bear'}</Button></div>
+    <div className="lc-action"><span>{data.head.bear_id?'Only this sighting will move.':'Confident these are the same bear?'}</span><Button variant="contained" disabled={busy||!!query.error||['ignored','unusable'].includes(data.head.review_state)||match.bear_id!==null&&match.bear_id===data.head.bear_id} onClick={()=>{setError('');setPending({head:{...data.head},match});}}>{match.bear_id!==null&&match.bear_id===data.head.bear_id?'Current identity':data.head.bear_id?'Change identity':'Confirm same bear'}</Button></div>
    </div></div>}
    <div className="lc-matches-heading"><h2>Similar sightings</h2><span>Highest similarity first</span></div>
    <div className="lc-matches">{matches.map(candidate=><button key={candidate.id} aria-label={`Compare ${candidate.label}`} aria-pressed={match?.id===candidate.id} onClick={()=>{setSelected(candidate.id);setPhotoId('');}}><img src={candidate.photos[0]?.src} alt="" loading="lazy"/><span><strong>{candidate.label}</strong><small>{candidate.photos.length} photos · {candidate.similarity.toFixed(3)}</small></span></button>)}</div>
