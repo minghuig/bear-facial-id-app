@@ -63,9 +63,9 @@ Avoid `docker compose down -v` unless you intend to erase the local database and
 
 ### Real inference on a local CPU
 
-The separate [`codex/local-cpu-inference` branch](https://github.com/minghuig/bear-facial-id-app/tree/codex/local-cpu-inference) supports real detection and recognition in Docker, with no AWS runtime dependency. It uses private model checkpoints, its own data volumes, frontend port **5174**, and API port **18000**.
+`main` supports real detection and recognition in Docker, with no AWS runtime dependency. It uses private model checkpoints, its own data volumes, frontend port **5174**, and API port **18000**.
 
-Follow its [local CPU setup guide](https://github.com/minghuig/bear-facial-id-app/blob/codex/local-cpu-inference/docs/LOCAL_CPU.md). Checkpoints and private photos are not included in a clone. This branch is a separate development environment and may differ from the hosted UI.
+Follow the [local CPU setup guide](docs/LOCAL_CPU.md). Checkpoints and private photos are not included in a clone. Local CPU mode uses the same application source as the hosted UI, with a separate local database and inference runtime.
 
 ## Hosted architecture
 
@@ -79,7 +79,7 @@ Browser → CloudFront HTTPS → private VPC origin → Caddy
 
 Caddy, the API, PostgreSQL, and inference workers share one EC2 instance in **us-east-2 (Ohio)**. The gateway blocks internal worker routes; application sessions protect photo access. Google handles sign-in, and application membership controls organization access.
 
-The deployed account implementation is on [`codex/mvp-accounts`](https://github.com/minghuig/bear-facial-id-app/tree/codex/mvp-accounts), with [deployment notes](https://github.com/minghuig/bear-facial-id-app/blob/codex/mvp-accounts/docs/MVP_IMPLEMENTATION.md). It has not yet been merged into `main`. Use those notes for the current infrastructure state; older tracer documents describe earlier deployment assumptions.
+The account implementation and local CPU tooling are merged into `main`. Deployments must use the current `main` commit; the release script rejects other revisions. See the [deployment notes](docs/MVP_IMPLEMENTATION.md) for the current infrastructure state; older tracer documents describe earlier deployment assumptions.
 
 Deployment requires owner approval. Keep the AWS account on its approved Free Plan: running resources consume credits, and those credits are finite. Do not upgrade the account, resize infrastructure, or assume continuous hosting is approved. Never put credentials, Terraform state, checkpoints, or private photos in Git.
 

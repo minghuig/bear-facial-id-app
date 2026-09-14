@@ -11,7 +11,7 @@ Only Bears is a hobby project for a small invited group. The next milestone is a
 - Hosted Google sign-in with invited accounts and separate Internal Testing / McNeil libraries.
 - Local mock development and a separate real-CPU development branch.
 
-The hosted account implementation lives on `codex/mvp-accounts`; it is not yet merged into `main`. Deployment checks pass, but real-user sign-in and organization-switching verification remain part of the MVP handoff.
+The hosted account implementation and local CPU tooling are merged into `main`, which is the deployment source. Deployment checks pass, but real-user sign-in and organization-switching verification remain part of the MVP handoff.
 
 ## Next: shared-library MVP
 
@@ -45,4 +45,4 @@ These are intentionally deferred from the MVP:
 
 Multiple permission roles, public self-signup, and a large multi-tenant platform are outside the current scope. No infrastructure upgrade or paid account conversion is implied by this roadmap.
 
-See the [README](README.md) for setup, the [original tracer plan](TRACER_BULLET_PLAN.md) for historical scope, and [deployment notes](https://github.com/minghuig/bear-facial-id-app/blob/codex/mvp-accounts/docs/MVP_IMPLEMENTATION.md) for the hosted release.
+See the [README](README.md) for setup, the [original tracer plan](TRACER_BULLET_PLAN.md) for historical scope, and [deployment notes](docs/MVP_IMPLEMENTATION.md) for the hosted release.
