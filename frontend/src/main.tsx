@@ -47,8 +47,11 @@ function App(){
  const currentError=error||String(photos.error||detail.error||bears.error||health.error||'');
  return <>
   <AppBar position="static" elevation={0} color="transparent" sx={{background:'#fff',borderBottom:'1px solid #dce2dc'}}>
-   <Toolbar variant="dense" sx={{gap:2,minHeight:56}}>
-    <Typography component="h1" variant="h6" sx={{flex:1,fontWeight:700}}>Only Bears</Typography>
+   <Toolbar variant="dense" sx={{gap:2,minHeight:64}}>
+    <div className="portal-brand">
+     <img className="portal-brand-mark" src="/bear.svg" width="42" height="42" alt=""/>
+     <Typography component="h1" variant="h6" sx={{fontWeight:800,letterSpacing:'-0.6px',color:'primary.main',whiteSpace:'nowrap'}}>Only Bears</Typography>
+    </div>
     <Chip size="small" variant="outlined" label={!health.data?'Connecting':health.data.pipeline.startsWith('mock')?'Mock inference':health.data.environment==='aws'?'AWS · CPU':'Local · CPU'}/>
    </Toolbar>
   </AppBar>

@@ -1,4 +1,6 @@
 :root { font-synthesis: none; }
+.portal-brand { display: flex; flex: 1; align-items: center; gap: 11px; min-width: 0; }
+.portal-brand-mark { display: block; flex-shrink: 0; }
 html, body, #root { height: 100%; }
 #root { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 .app-content { flex: 1; min-height: 0; display: flex !important; flex-direction: column; }
@@ -63,6 +65,8 @@ button:focus-visible, summary:focus-visible { outline: 3px solid #407963; outlin
  .photo-stage { min-height: 0; }
 }
 @media (max-width: 600px) {
+ .portal-brand { gap: 8px; }
+ .portal-brand-mark { width: 36px; height: 36px; }
  .workspace-toolbar { flex-wrap: wrap; gap: 8px; padding-bottom: 12px; }
  .photo-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(100px, 26%) minmax(0, 1fr); gap: 12px; }
  .collection-item { padding: 7px 8px; }
