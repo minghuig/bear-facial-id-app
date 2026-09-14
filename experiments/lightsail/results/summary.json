@@ -1,0 +1,38 @@
+[
+  {
+    "stage": "detection",
+    "memory_gib": 4,
+    "reserve_mib": 768,
+    "exit_code": 0,
+    "oom_killed": false,
+    "image_id": "sha256:f50c2b0d04ac982b4d27b56bf8e2e5151d4c035a4f26dfc5986bf2a67b030ca3",
+    "seconds": 64.73
+  },
+  {
+    "stage": "recognition",
+    "memory_gib": 4,
+    "reserve_mib": 768,
+    "exit_code": 0,
+    "oom_killed": false,
+    "image_id": "sha256:f68b7c06e3d2317c4d1e02b2d56efc057bf86f3de2084d0532700364668bcdc4",
+    "seconds": 51.11
+  },
+  {
+    "stage": "detection",
+    "memory_gib": 2,
+    "reserve_mib": 768,
+    "exit_code": 0,
+    "oom_killed": false,
+    "image_id": "sha256:f50c2b0d04ac982b4d27b56bf8e2e5151d4c035a4f26dfc5986bf2a67b030ca3",
+    "seconds": 62.49
+  },
+  {
+    "stage": "recognition",
+    "memory_gib": 2,
+    "reserve_mib": 768,
+    "exit_code": 0,
+    "oom_killed": false,
+    "image_id": "sha256:f68b7c06e3d2317c4d1e02b2d56efc057bf86f3de2084d0532700364668bcdc4",
+    "seconds": 57.6
+  }
+]
