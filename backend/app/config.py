@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     lease_seconds: int = 300
     job_timeout_seconds: int = 1800
     max_attempts: int = 3
+    auto_recognize: bool = True
 
 @lru_cache
 def settings():

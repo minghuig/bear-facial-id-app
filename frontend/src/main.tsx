@@ -22,7 +22,7 @@ async function api<T>(path:string,method='GET',body?:unknown):Promise<T>{
   const r=await fetch(path,{method,headers:body instanceof FormData?{}:{'Content-Type':'application/json'},body:body instanceof FormData?body:body===undefined?undefined:JSON.stringify(body)});
   if(!r.ok) throw new Error((await r.text()) || r.statusText); return r.json();
 }
-type Bear={id:string;name:string|null};
+type Bear={id:string;name:string|null;thumbnail_url?:string|null};
 type Candidate={bear_id:string;name:string|null;reference_id:string;cosine:number};
 type Head={id:string;index:number;box:number[];crop_url:string;recognition_state:string;review_state:string;bear_id:string|null;error:string|null;suggestions:{id:string;created_at:string;gallery_revision:number;candidates:Candidate[]}[]};
 type Photo={id:string;filename:string;image_url:string;thumbnail_url:string;width:number;height:number;detection_state:string;pipeline:string;status_label?:string};
@@ -40,8 +40,10 @@ function App(){
  const refs=useQuery({queryKey:['refs',bearView],queryFn:()=>api<Head[]>(`/api/bears/${bearView}/references`),enabled:!!bearView});
  const head=detail.data?.heads[index];
  const history=useQuery({queryKey:['history',head?.id],queryFn:()=>api<{id:string;state:string;bear_id:string|null;created_at:string}[]>(`/api/heads/${head!.id}/history`),enabled:!!head});
- async function act(fn:()=>Promise<unknown>){setError('');setBusy(true);try{await fn();await qc.invalidateQueries();}catch(e){setError(String(e));}finally{setBusy(false);}}
+ async function act(fn:()=>Promise<unknown>,lock=true){setError('');if(lock)setBusy(true);try{await fn();await qc.invalidateQueries();}catch(e){setError(String(e));}finally{if(lock)setBusy(false);}}
  function review(state:string,bear_id?:string){if(head)void act(()=>api(`/api/heads/${head.id}/review`,'POST',{state,bear_id:bear_id||null}));}
+ const recognizing=!!detail.data?.heads.some(h=>['queued','running'].includes(h.recognition_state));
+ const headRecognizing=!!head&&['queued','running'].includes(head.recognition_state);
  const currentError=error||String(photos.error||detail.error||bears.error||health.error||'');
  return <>
   <AppBar position="static" elevation={0} color="transparent" sx={{background:'#fff',borderBottom:'1px solid #dce2dc'}}>
@@ -50,15 +52,15 @@ function App(){
     <Chip size="small" variant="outlined" label={!health.data?'Connecting':health.data.pipeline.startsWith('mock')?'Mock inference':health.data.environment==='aws'?'AWS · CPU':'Local · CPU'}/>
    </Toolbar>
   </AppBar>
-  <Container maxWidth="xl" sx={{py:2}}>
-   <Stack spacing={2}>
+  <Container className="app-content" maxWidth={false} sx={{py:2}}>
+   <Stack className="workspace-stack" spacing={2}>
     {currentError&&<Alert severity="error" onClose={()=>setError('')}>{currentError}</Alert>}
     {notice&&<Alert severity={noticeSeverity} onClose={()=>setNotice('')}>{notice}</Alert>}
     <div className="workspace-toolbar">
      <Tabs value={tab} onChange={(_,v)=>setTab(v)} aria-label="Collection views">
-      <Tab label="Photos & review"/><Tab label="Bears & references"/>
+      <Tab label="Photos & review"/><Tab label="Bears"/>
      </Tabs>
-     {tab===0&&<Button variant="contained" component="label" disabled={busy} aria-busy={uploadCount>0} startIcon={uploadCount>0?<CircularProgress size={16} color="inherit" aria-label="Uploading photos"/>:undefined}>
+     {tab===0&&<Button variant="contained" component="label" disabled={uploadCount>0} aria-busy={uploadCount>0} startIcon={uploadCount>0?<CircularProgress size={16} color="inherit" aria-label="Uploading photos"/>:undefined}>
       {uploadCount>0?`Uploading ${uploadCount} photo${uploadCount===1?'':'s'}…`:'Upload photos'}
       <input hidden multiple type="file" accept="image/jpeg,image/png" onChange={e=>{
        const files=Array.from(e.target.files||[]);e.target.value='';if(!files.length)return;
@@ -71,8 +73,8 @@ function App(){
         const failures=result.photos.filter(p=>p.error).length;
         setNoticeSeverity(failures===0?'success':failures===result.photos.length?'error':'warning');
         setNotice(result.photos.map(p=>`${p.filename}: ${p.error||(p.duplicate?'already uploaded':'saved')}`).join('; '));
-        const first=result.photos.find(p=>p.id);if(first){setSelected(first.id);setIndex(0);setBearChoice('');}
-       }).finally(()=>{setUploadCount(0);setPendingUploads([]);pending.forEach(p=>URL.revokeObjectURL(p.url));});
+        const first=result.photos.find(p=>p.id);if(first&&!selected){setSelected(current=>current||first.id);}
+       },false).finally(()=>{setUploadCount(0);setPendingUploads([]);pending.forEach(p=>URL.revokeObjectURL(p.url));});
       }}/>
      </Button>}
     </div>
@@ -105,8 +107,8 @@ function App(){
          </div>
         </div>
         {!!detail.data.heads.length&&<div className="recognition-bar">
-         <Typography variant="body2" color="text.secondary">Ignore cubs or unusable crops first. Recognition runs only when requested.</Typography>
-         <Button disabled={busy||!detail.data.heads.some(h=>['not_requested','failed'].includes(h.recognition_state)&&!['ignored','unusable'].includes(h.review_state))} variant="contained" onClick={()=>act(()=>api(`/api/photos/${selected}/recognize`,'POST'))}>Run recognition</Button>
+         <Typography variant="body2" color="text.secondary">Detected heads are recognized automatically. Review matches and confirm identities below.</Typography>
+         <Button startIcon={recognizing?<CircularProgress size={16} color="inherit"/>:undefined} aria-busy={recognizing} disabled={busy||recognizing||!detail.data.heads.some(h=>['not_requested','failed'].includes(h.recognition_state)&&!['ignored','unusable'].includes(h.review_state))} variant="contained" onClick={()=>act(()=>api(`/api/photos/${selected}/recognize`,'POST'))}>{recognizing?'Recognizing…':'Run recognition'}</Button>
         </div>}
         {detail.data.jobs.filter(j=>j.error&&j.state!=='superseded'&&!(j.stage==='detection'&&detail.data.detection_state==='complete')).map(j=><Alert key={j.id} severity={j.state==='failed'?'error':'warning'}>{j.stage}: {j.error} (attempts: {j.attempts}, {j.state}) {j.state==='failed'&&j.stage==='detection'&&<Button disabled={busy} onClick={()=>act(()=>api(`/api/jobs/${j.id}/retry`,'POST'))}>Retry detection</Button>}</Alert>)}
        </div>
@@ -116,6 +118,7 @@ function App(){
          <img src={head.crop_url} alt={`Head ${index+1}`}/>
          <div><Chip size="small" variant="outlined" label={head.review_state.replaceAll('_',' ')}/><Typography variant="body2" color="text.secondary" sx={{mt:1}}>Recognition: {head.recognition_state==='not_requested'?'not run':head.recognition_state.replaceAll('_',' ')}</Typography>{head.bear_id&&<Typography variant="body2" sx={{mt:.5,overflowWrap:'anywhere'}}>{label(bears.data?.find(b=>b.id===head.bear_id)||{id:head.bear_id,name:null})}</Typography>}</div>
         </div>
+        {headRecognizing&&<div className="recognition-status" role="status"><CircularProgress size={24}/><div><strong>{head.recognition_state==='queued'?'Recognition queued':'Recognizing this bear…'}</strong><p>{head.recognition_state==='queued'?'Waiting for the next available worker. You can keep reviewing.':'Comparing this head with confirmed bears. Results appear here automatically.'}</p></div></div>}
         {head.error&&<Alert severity="error">{head.error}. Run recognition again to retry this eligible head.</Alert>}
         <Stack direction="row" spacing={.5} useFlexGap flexWrap="wrap">{['unresolved','ignored','unusable'].map(state=><Button key={state} disabled={busy} onClick={()=>review(state)}>{state==='unresolved'?'Leave unidentified':state==='ignored'?'Ignore subject':'Mark unusable'}</Button>)}</Stack>
         {head.recognition_state==='complete'&&<div className="panel-section">
@@ -124,7 +127,7 @@ function App(){
          {!head.suggestions[0]?.candidates.length&&<Typography variant="body2" sx={{py:1}}>No eligible references. Assign a bear below or leave unresolved.</Typography>}
          <div className="candidate-list">{head.suggestions[0]?.candidates.map(c=><div className="candidate-row" key={c.bear_id}>
           <img src={`/api/heads/${c.reference_id}/image?variant=thumbnail-v1`} alt="Supporting confirmed reference" loading="lazy" decoding="async"/>
-          <div><Typography variant="body2" sx={{fontWeight:600,overflowWrap:'anywhere'}}>{label({id:c.bear_id,name:c.name})}</Typography><Typography variant="caption" color="text.secondary">Cosine {c.cosine.toFixed(4)}</Typography></div>
+          <div><Typography variant="body2" sx={{fontWeight:600,overflowWrap:'anywhere'}}>{label({id:c.bear_id,name:c.name})}</Typography><Typography variant="caption" color="text.secondary">Similarity {c.cosine.toFixed(4)}</Typography></div>
           <Button disabled={busy} onClick={()=>review('confirmed',c.bear_id)} aria-label={`Confirm ${label({id:c.bear_id,name:c.name})}`}>Confirm</Button>
          </div>)}</div>
          <details className="compact-details"><summary>About these matches</summary><p>Bears with more references may be favored. An empty candidate list does not establish a new individual.</p><p>Saved snapshot revision {head.suggestions[0]?.gallery_revision??'—'} · {head.suggestions.length} snapshot(s)</p></details>
@@ -140,10 +143,10 @@ function App(){
      </section>}
     </div>:<div className="photo-workspace">
      <aside className="collection-list" aria-label="Bears"><div className="section-label">Bears <span>{bears.data?.length??0}</span></div><div className="collection-items">
-       {pendingUploads.map(p=><div key={p.url} className="collection-item" aria-busy="true"><img src={p.url} alt=""/><span className="item-copy"><span className="item-name">{p.name}</span><span className="item-state">Uploading…</span></span><CircularProgress size={16}/></div>)}{bears.data?.map(b=><button type="button" className="collection-item" key={b.id} aria-current={bearView===b.id?'true':undefined} onClick={()=>setBearView(b.id)}><span className="bear-avatar" aria-hidden="true">{(b.name||'?').slice(0,1).toUpperCase()}</span><span className="item-name">{label(b)}</span></button>)}</div>{!bears.data?.length&&<p className="muted">Create a bear while reviewing a head.</p>}</aside>
+       {bears.data?.map(b=><button type="button" className="collection-item" key={b.id} aria-current={bearView===b.id?'true':undefined} onClick={()=>setBearView(b.id)}><span className="bear-avatar" aria-hidden="true">{b.thumbnail_url?<img src={b.thumbnail_url} alt="" loading="lazy"/>:'—'}</span><span className="item-name">{label(b)}</span></button>)}</div>{!bears.data?.length&&<p className="muted">Create a bear while reviewing a head.</p>}</aside>
      {bearView?<section className="reference-panel"><div className="section-heading"><Typography component="h2" variant="h6" sx={{overflowWrap:'anywhere'}}>{label(bears.data?.find(b=>b.id===bearView)||{id:bearView,name:null})}</Typography><Button onClick={()=>{setName(bears.data?.find(b=>b.id===bearView)?.name||'');setDialog('rename');}}>Edit name</Button></div><Typography variant="body2" color="text.secondary">Confirmed usable heads with valid embeddings become references.</Typography><div className="reference-grid">{refs.data?.map((h,i)=><img key={h.id} src={h.crop_url} alt={`Confirmed reference ${i+1}`}/>)}</div>{refs.error&&<Alert severity="error">{String(refs.error)}</Alert>}{refs.isPending?<Typography color="text.secondary">Loading references…</Typography>:!refs.data?.length&&!refs.error&&<Typography color="text.secondary">No eligible references for this bear yet.</Typography>}</section>:<div className="empty-state"><Typography component="h2" variant="h6">Select a bear to view references</Typography><Typography color="text.secondary">Bear identities stay the same when names change.</Typography></div>}
     </div>}
-    <details className="compact-details workspace-help"><summary>How review works</summary><p>Upload JPEG or PNG photos, review each detected head, then run recognition on eligible heads. Confirming a usable head with a valid embedding creates a reference for later matching.</p><p>Leave uncertain heads unresolved. Matching quality is experimental; no identity is assigned automatically. Head detection uses oriented originals with no body detector or crop margin. One shared collection; bear IDs stay stable when names change.</p></details>
+    <details className="compact-details workspace-help"><summary>How review works</summary><p>Upload JPEG or PNG photos. Detection and recognition run automatically; review each head and confirm its identity. Confirming a usable head with a valid embedding creates a reference for later matching.</p><p>Leave uncertain heads unresolved. Matching quality is experimental; no identity is assigned automatically. Head detection uses oriented originals with no body detector or crop margin. One shared collection; bear IDs stay stable when names change.</p></details>
    </Stack>
   </Container>
   <Dialog open={!!dialog} onClose={()=>setDialog(null)} fullWidth maxWidth="xs"><DialogTitle>{dialog==='create'?'Create a distinct bear':'Edit display name'}</DialogTitle><DialogContent><TextField fullWidth autoFocus label="Display name (optional)" value={name} inputProps={{maxLength:120}} onChange={e=>setName(e.target.value)} sx={{mt:1}}/><Typography variant="body2" color="text.secondary" sx={{mt:1}}>Leave blank for an unnamed identity. “Unknown” is not a shared identity.</Typography></DialogContent><DialogActions><Button onClick={()=>setDialog(null)}>Cancel</Button><Button disabled={busy} onClick={()=>act(async()=>{if(dialog==='create'){const b=await api<Bear>('/api/bears','POST',{name:name||null});await api(`/api/heads/${head!.id}/review`,'POST',{state:'confirmed',bear_id:b.id});}else await api(`/api/bears/${bearView}`,'PATCH',{name:name||null});setDialog(null);})}>Save</Button></DialogActions></Dialog>

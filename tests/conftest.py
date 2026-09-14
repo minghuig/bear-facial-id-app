@@ -19,6 +19,8 @@ def api(monkeypatch):
     from sqlalchemy.orm import sessionmaker
     from fastapi.testclient import TestClient
     from app import main, storage
+    # Existing workflow tests exercise the supported manual pause mode.
+    monkeypatch.setattr(main.s, 'auto_recognize', False)
     from app.db import session
     from app.models import Base, Gallery
     schema = 'test_' + uuid.uuid4().hex

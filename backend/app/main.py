@@ -175,7 +175,13 @@ def refresh(head_id: str, db: DB):
 
 @app.get('/api/bears')
 def bears(db: DB):
-    return [dict(id=b.id,name=b.name) for b in db.scalars(select(Bear).order_by(Bear.created_at)).all()]
+    thumbnails = {}
+    for oid, bid in db.execute(select(Observation.id, Observation.bear_id).where(
+            Observation.review_state == 'confirmed', Observation.bear_id.is_not(None))
+            .order_by(Observation.created_at, Observation.id)):
+        thumbnails.setdefault(bid, f'/api/heads/{oid}/image?variant=thumbnail-v1')
+    return [dict(id=b.id,name=b.name,thumbnail_url=thumbnails.get(b.id))
+            for b in db.scalars(select(Bear).order_by(Bear.created_at)).all()]
 @app.post('/api/bears')
 def create_bear(body: BearInput, db: DB):
     b = Bear(name=(body.name or '').strip() or None); db.add(b); db.commit()
@@ -281,12 +287,17 @@ def result(job_id: str, body: Result, db: DB):
             x1,y1,x2,y2 = max(0,math.floor(box[0])),max(0,math.floor(box[1])),min(p.width,math.ceil(box[2])),min(p.height,math.ceil(box[3]))
             if x2 > x1 and y2 > y1: accepted.append([x1,y1,x2,y2])
         image = Image.open(io.BytesIO(storage.get(p.oriented_key)))
+        observation_ids = []
         for index, box in enumerate(accepted):
             key = f'crops/{p.id}/{index}.png'
             out = io.BytesIO(); image.crop(box).save(out,format='PNG'); storage.put(key,out.getvalue())
-            db.add(Observation(photo_id=p.id,index=index,box=box,crop_key=key,pipeline=p.pipeline))
+            oid = uid()
+            observation_ids.append(oid)
+            db.add(Observation(id=oid,photo_id=p.id,index=index,box=box,crop_key=key,pipeline=p.pipeline,
+                               recognition_state='queued' if s.auto_recognize else 'not_requested'))
         p.detections = d.boxes; p.provenance = body.provenance; p.detection_state = 'complete'
-        # Intentionally no recognition job: this persisted pause is the product boundary.
+        if s.auto_recognize and observation_ids:
+            db.add(Job(photo_id=p.id,stage='recognition',pipeline=s.pipeline,observation_ids=observation_ids))
     else:
         gallery = lock_gallery(db)
         ids = [h.observation_id for h in body.heads]
