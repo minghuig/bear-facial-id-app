@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import {QueryClient, QueryClientProvider, useQuery} from '@tanstack/react-query';
 import {Alert, AppBar, Button, Card, CardContent, Chip, CircularProgress, Container, CssBaseline, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Select, Stack, Tab, Tabs, TextField, ThemeProvider, Toolbar, Typography, createTheme} from '@mui/material';
 import './styles.css';
+import {PhotoBrowser} from './PhotoBrowser';
 
 const qc = new QueryClient();
 let csrfToken='';
@@ -30,7 +31,7 @@ async function api<T>(path:string,method='GET',body?:unknown):Promise<T>{
 type Bear={id:string;name:string|null;thumbnail_url?:string|null};
 type Candidate={bear_id:string;name:string|null;reference_id:string;cosine:number};
 type Head={id:string;index:number;box:number[];crop_url:string;recognition_state:string;review_state:string;bear_id:string|null;error:string|null;suggestions:{id:string;created_at:string;gallery_revision:number;candidates:Candidate[]}[]};
-type Photo={id:string;filename:string;image_url:string;thumbnail_url:string;width:number;height:number;detection_state:string;pipeline:string;status_label?:string};
+type Photo={id:string;filename:string;image_url:string;thumbnail_url:string;width:number;height:number;detection_state:string;pipeline:string;status_label?:string;created_at?:string;bear_ids?:string[]};
 type Detail=Photo&{heads:Head[];jobs:{id:string;stage:string;state:string;error:string|null;attempts:number}[]};
 const label=(b:Bear)=>b.name||`Unnamed bear · ${b.id.slice(0,8)}`;
 function App({identity}:{identity:Identity}){
@@ -38,7 +39,7 @@ function App({identity}:{identity:Identity}){
  const [pendingUploads,setPendingUploads]=useState<{name:string;url:string}[]>([]);
  const [uploadCount,setUploadCount]=useState(0),[noticeSeverity,setNoticeSeverity]=useState<'success'|'warning'|'error'>('success');
  const [bearChoice,setBearChoice]=useState(''),[dialog,setDialog]=useState<'create'|'rename'|null>(null),[name,setName]=useState(''),[bearView,setBearView]=useState('');
- const health=useQuery({queryKey:[identity.org_id,'health'],queryFn:()=>api<{pipeline:string;commit:string;environment:string}>('/health')});
+ const health=useQuery({queryKey:[identity.org_id,'health'],queryFn:()=>api<{pipeline:string;commit:string;environment:string}>('/api/status')});
  const photos=useQuery({queryKey:[identity.org_id,'photos'],queryFn:()=>api<Photo[]>('/api/photos'),refetchInterval:3000});
  const bears=useQuery({queryKey:[identity.org_id,'bears'],queryFn:()=>api<Bear[]>('/api/bears')});
  const detail=useQuery({queryKey:[identity.org_id,'photo',selected],queryFn:()=>api<Detail>('/api/photos/'+selected),enabled:!!selected,refetchInterval:2000});
@@ -52,11 +53,14 @@ function App({identity}:{identity:Identity}){
  const currentError=error||String(photos.error||detail.error||bears.error||health.error||'');
  return <>
   <AppBar position="static" elevation={0} color="transparent" sx={{background:'#fff',borderBottom:'1px solid #dce2dc'}}>
-   <Toolbar variant="dense" sx={{gap:2,minHeight:56}}>
-    <Typography component="h1" variant="h6" sx={{flex:1,fontWeight:700}}>Only Bears</Typography>
+<Toolbar variant="dense" sx={{gap:2,minHeight:64}}>
+    <div className="portal-brand">
+     <img className="portal-brand-mark" src="/bear.svg" width="42" height="42" alt=""/>
+     <Typography component="h1" variant="h6" sx={{fontWeight:800,letterSpacing:'-0.6px',color:'primary.main',whiteSpace:'nowrap'}}>Only Bears</Typography>
+    </div>
     <Select size="small" value={identity.org_id} disabled={busy||uploadCount>0||identity.organizations.length<2} inputProps={{"aria-label":"Organization"}} onChange={e=>void act(async()=>{await api("/api/session/organization","POST",{org_id:e.target.value});qc.clear();window.location.reload();})}>{identity.organizations.map(o=><MenuItem key={o.id} value={o.id}>{o.name}</MenuItem>)}</Select>
     {identity.mode==="google"&&<Button onClick={()=>void act(async()=>{await api("/api/session/logout","POST");qc.clear();window.location.reload();})}>Sign out</Button>}
-<Chip size="small" variant="outlined" label={!health.data?'Connecting':health.data.pipeline.startsWith('mock')?'Mock inference':health.data.environment==='aws'?'AWS · CPU':'Local · CPU'}/>
+    <Chip size="small" variant="outlined" label={!health.data?'Connecting':health.data.pipeline.startsWith('mock')?'Mock inference':health.data.environment==='aws'?'AWS · CPU':'Local · CPU'}/>
    </Toolbar>
   </AppBar>
   <Container className="app-content" maxWidth={false} sx={{py:2}}>
@@ -88,17 +92,7 @@ function App({identity}:{identity:Identity}){
     </div>
     {health.data?.pipeline.startsWith('mock')&&<Typography variant="body2" color="text.secondary">Mock results for development · separate from real inference.</Typography>}
     {tab===0?<div className="photo-workspace">
-     <aside className="collection-list" aria-label="Photos">
-      <div className="section-label">Photos <span>{photos.data?.length??0}</span></div>
-      <div className="collection-items">
-       {pendingUploads.map(p=><div key={p.url} className="collection-item" aria-busy="true"><img src={p.url} alt=""/><span className="item-copy"><span className="item-name">{p.name}</span><span className="item-state">Uploading…</span></span><CircularProgress size={16}/></div>)}
-       {photos.data?.map(p=><button type="button" key={p.id} className="collection-item" aria-current={selected===p.id?'true':undefined} onClick={()=>{setSelected(p.id);setIndex(0);setBearChoice('');}}>
-        <img src={p.thumbnail_url} alt="" loading="lazy" decoding="async"/>
-        <span className="item-copy"><span className="item-name" title={p.filename}>{p.filename}</span><span className="item-state">{p.status_label||(p.detection_state==='complete'?'Ready to Review':p.detection_state==='failed'?'Detection failed':'Detecting Bears…')}</span></span>
-       </button>)}
-      </div>
-      {!photos.data?.length&&<p className="muted">{photos.isPending?'Loading photos…':'Upload a JPEG or PNG to begin.'}</p>}
-     </aside>
+     <PhotoBrowser photos={photos.data||[]} bears={bears.data||[]} selected={selected} onSelect={id=>{setSelected(id);setIndex(0);setBearChoice('');}} pending={pendingUploads} loading={photos.isPending}/>
      {!selected&&<div className="empty-state"><Typography component="h2" variant="h6">Select a photo to review</Typography><Typography color="text.secondary">Review detected heads, then match against confirmed bears.</Typography></div>}
      {selected&&detail.isPending&&<p className="muted">Loading photo…</p>}
      {detail.data&&<section className="photo-detail" aria-label="Photo review">
