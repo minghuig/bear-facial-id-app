@@ -40,6 +40,7 @@ PIPELINE=$(python3 scripts/pipeline.py)
 sed -i '/^PIPELINE=/d' /srv/only-bears/runtime.env
 printf 'PIPELINE=%s\n' "$PIPELINE" >> /srv/only-bears/runtime.env
 aws s3 sync "s3://$BUCKET/models/" /opt/only-bears/models/ --region "$REGION" --only-show-errors
+python3 scripts/verify-models.py /opt/only-bears/models
 chmod 755 /opt/only-bears/models
 chmod 644 /opt/only-bears/models/*.pth
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY"
@@ -58,7 +59,7 @@ source /srv/only-bears/runtime.env
 set +a
 compose() { docker compose -p only-bears -f infra/compose.aws.yaml "$@"; }
 # Quiesce writers; preserve a pre-migration logical backup on the durable disk.
-compose stop detector recognition api || true
+compose stop detector recognition api
 compose up -d --wait db
 compose exec -T db pg_dump -U bears -Fc bears > "/srv/only-bears/backups/pre-$COMMIT-$(date +%s).dump"
 compose run --rm --no-deps api alembic upgrade head
