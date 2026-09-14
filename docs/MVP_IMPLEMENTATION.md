@@ -1,6 +1,6 @@
 # MVP deployment checkpoint
 
-Release branch: codex/mvp-accounts. EC2 release: 1d2e18f (includes approved library browser and branding). CloudFront: https://d1u7h1fs60yvpr.cloudfront.net, distribution EKI9LZWOO8UM6, private origin vo_1qIBWaAzgJbCPjcIQGjMdz. Public enablement is in progress.
+Release branch: codex/mvp-accounts. EC2 release: 1d2e18f (includes approved library browser and branding). CloudFront: https://d1u7h1fs60yvpr.cloudfront.net, distribution EKI9LZWOO8UM6, private origin vo_1qIBWaAzgJbCPjcIQGjMdz. Public enablement completed. HTTPS checks: app 200, unauthenticated auth/me and photos 401, internal/docs 404; Google login 302 to accounts.google.com with Secure/HttpOnly cookie.
 
 Google login and two isolated organizations are installed. Existing library migrated to Internal Testing; McNeil starts empty. zfleischman@gmail.com and minghuig@gmail.com are invited to both. Owner saved the exact /auth/callback redirect. Credentials were explicitly approved for temporary encrypted private S3 transfer, installed on EC2, and the temporary S3 copy deleted. Never commit or print runtime.env or google.env.
 
