@@ -1,5 +1,7 @@
 # Only Bears progress
 
+Next milestone: [invite-only MVP](MVP_PLAN.md) for one shared organization and 3–5 Google users. Broad regression, recovery and reliability acceptance (including remaining BEAR-5/6 work) are deferred to the reliability milestone by the owner. The MVP retains narrow feature/access checks. Planning and independent review: BEAR-18.
+
 Updated September 13, 2026 (Pacific). Scope: [tracer bullet](../TRACER_BULLET_PLAN.md).
 
 | Ticket | Status |
