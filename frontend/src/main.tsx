@@ -159,7 +159,7 @@ function App({identity}:{identity:Identity}){
         {head.recognition_state==='complete'&&<div className="panel-section">
          <div className="section-heading"><Typography component="h3" variant="subtitle2">Similar sightings</Typography></div>
          {['ignored','unusable'].includes(head.review_state)?<Typography variant="body2" color="text.secondary">Restore this sighting as unidentified to compare matches.</Typography>:<>
-          <Typography variant="caption" color="text.secondary">Highest similarity first · similarity is not identity probability.</Typography>
+          <Typography variant="caption" color="text.secondary">Top 10 photos · highest similarity first · similarity is not identity probability.</Typography>
           {similar.isPending&&<Typography variant="body2" role="status">Loading matches…</Typography>}
           {similar.error&&<Alert severity="error" action={<Button onClick={()=>void similar.refetch()}>Retry</Button>}>Unable to load similar sightings.</Alert>}
           {!similar.isPending&&!similar.error&&!similar.data?.candidates.length&&<Typography variant="body2">No similar sightings yet.</Typography>}

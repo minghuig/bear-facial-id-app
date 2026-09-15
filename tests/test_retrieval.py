@@ -14,7 +14,7 @@ def test_invalid_embeddings(value):
         vector(value)
 
 
-def test_eligibility_distinct_bears_and_best_reference():
+def test_eligibility_ranks_individual_sightings_and_keeps_top_ten():
     engine = create_engine('sqlite://')
     Base.metadata.create_all(engine)
     with Session(engine) as db:
@@ -36,18 +36,19 @@ def test_eligibility_distinct_bears_and_best_reference():
         head(other_photo, 2, bears[4], state='unusable')
         head(other_photo, 3, bears[5], pipeline='real-v1')
         head(other_photo, 4, bears[6], embedding=[0.0]*512)
-        head(other_photo, 5, bears[7], embedding=[.8,.6]+[0.0]*510)
+        second = head(other_photo, 5, bears[7], embedding=[.8,.6]+[0.0]*510)
         best = head(other_photo, 6, bears[7])
-        head(other_photo, 7, bears[8], embedding=[.6,.8]+[0.0]*510)
+        third = head(other_photo, 7, bears[8], embedding=[.6,.8]+[0.0]*510)
         gallery = Gallery(id=1, revision=17); db.add(gallery)
         result = snapshot(db, query, gallery)
-        assert [c['bear_id'] for c in result.candidates] == [bears[7].id, bears[8].id]
-        assert result.candidates[0]['reference_id'] == best.id
+        assert [c['bear_id'] for c in result.candidates] == [
+            bears[7].id, bears[7].id, bears[8].id]
+        assert [c['reference_id'] for c in result.candidates] == [best.id, second.id, third.id]
         assert result.candidates[0]['cosine'] == 1.0
         assert result.gallery_revision == 17
-        for i in range(5):
+        for i in range(12):
             b = Bear(name='extra'); db.add(b); db.flush(); head(other_photo, 8+i, b)
-        assert len(snapshot(db, query, gallery).candidates) == 5
+        assert len(snapshot(db, query, gallery).candidates) == 10
 
 
 def test_candidates_include_unassigned_sightings_and_preserve_snapshot_compatibility():

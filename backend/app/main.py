@@ -18,7 +18,7 @@ from .models import Batch, Photo, Observation, Bear, Review, Gallery, Suggestion
 from .contracts import Claim, Lease, Result, ReviewInput, MatchInput, UndoMatchInput, BearInput
 from . import storage, previews
 from .photo_status import status as photo_status
-from .retrieval import candidates, snapshot, vector
+from .retrieval import MATCH_LIMIT, candidates, snapshot, vector
 
 s = settings()
 app = FastAPI(title='Only Bears', docs_url=None if s.public_deployment else '/docs', redoc_url=None if s.public_deployment else '/redoc')
@@ -236,7 +236,7 @@ def comparison_photo(db, observation):
 def matches(head_id: str, db: DB):
     query = need(db, Observation, head_id)
     result = []
-    for candidate in candidates(db, query):
+    for candidate in candidates(db, query)[:MATCH_LIMIT]:
         reference = need(db, Observation, candidate['reference_id'])
         if candidate['kind'] == 'bear':
             gallery = db.scalars(select(Observation).where(
@@ -245,11 +245,11 @@ def matches(head_id: str, db: DB):
                 Observation.photo_id != query.photo_id)
                 .order_by(Observation.created_at, Observation.id)).all()
             gallery = [reference] + [photo for photo in gallery if photo.id != reference.id]
-            label = candidate['name'] or f"Unknown bear · {candidate['id'][:8]}"
+            label = candidate['name'] or f"Unknown bear · {candidate['bear_id'][:8]}"
         else:
             gallery = [reference]
             label = f"Unidentified sighting · {candidate['id'][:8]}"
-        result.append({'id':candidate['id'], 'label':label, 'kind':candidate['kind'],
+        result.append({'id':candidate['reference_id'], 'label':label, 'kind':candidate['kind'],
                        'similarity':candidate['cosine'],
                        'reference_id':candidate['reference_id'],
                        'bear_id':candidate['bear_id'],

@@ -57,8 +57,9 @@ def test_live_matches_include_unknowns_and_complete_identity_gallery(api):
     }
     assert [(candidate['kind'], candidate['id'], candidate['reference_id'])
             for candidate in body['candidates']] == [
-        ('bear', cedar.id, support.id),
+        ('bear', support.id, support.id),
         ('sighting', unknown.id, unknown.id),
+        ('bear', other.id, other.id),
     ]
     known = body['candidates'][0]
     assert known['label'] == 'Cedar'
@@ -71,6 +72,27 @@ def test_live_matches_include_unknowns_and_complete_identity_gallery(api):
         'src': f'/api/heads/{unknown.id}/image?variant=preview-v1',
         'label': 'unknown.jpg',
     }]
+    assert [photo['id'] for photo in body['candidates'][2]['photos']] == [other.id, support.id]
+
+
+def test_live_matches_return_top_ten_photos_without_deduplicating_bears(api):
+    client, factory, _ = api
+    with factory.begin() as db:
+        cedar = Bear(name='Cedar'); db.add(cedar); db.flush()
+        query = seed_head(db, filename='query.jpg')
+        references = [seed_head(db, filename=f'reference-{index}.jpg',
+            embedding=unit(.99 - index * .02), state='confirmed', bear=cedar)
+            for index in range(12)]
+
+    response = client.get(f'/api/heads/{query.id}/matches')
+    assert response.status_code == 200, response.text
+    candidates = response.json()['candidates']
+    assert len(candidates) == 10
+    assert [candidate['reference_id'] for candidate in candidates] == [
+        reference.id for reference in references[:10]]
+    assert [candidate['id'] for candidate in candidates] == [
+        reference.id for reference in references[:10]]
+    assert {candidate['bear_id'] for candidate in candidates} == {cedar.id}
 
 
 def test_match_two_unassigned_sightings_creates_one_unnamed_identity(api):
