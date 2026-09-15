@@ -13,7 +13,7 @@ if printf '%s\n' "$names" | rg -n '(^|/)(\.env$|\.private/|\.venv/|node_modules/
   exit 1
 fi
 
-# .env.example is an intentional template; .env itself is forbidden by the filename check above.
+# .env.mock.example is an intentional test template; private env files remain forbidden.
 if git diff --cached --name-only | rg -n '(^|/)\.env$'; then
   echo 'A real .env file is staged.' >&2
   exit 1

@@ -1,6 +1,6 @@
 .env
 .env.*
-!.env.example
+!.env.mock.example
 .private/
 artifacts/
 reports/private/

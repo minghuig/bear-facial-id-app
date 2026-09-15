@@ -8,7 +8,7 @@ Initial M6a launch was rejected by the Free Plan. The user authorized m7i-flex.l
 
 Install Terraform >=1.6, AWS CLI v2, the AWS Session Manager plugin, Python 3 and Git on the operator machine. Docker is unnecessary for releasing: all container builds and all real inference happen on EC2. Authenticate the CLI to the approved AWS account using its normal SSO/credential mechanism (`aws sts get-caller-identity` confirms the account). Operator permissions must cover the Terraform resources plus SSM SendCommand/StartSession, S3 uploads and EC2 start/stop. These permissions are infrastructure/operator access, never application accounts or browser secrets.
 
-The VPC allows **no inbound connections**. Its public address supports outbound installation and SSM; no API/SSH ports are publicly open. API binds to host loopback. Frontend remains at `http://localhost:5173`, and reaches AWS through authenticated SSM port forwarding to `http://localhost:8000`. S3 is private and uses expiring object links. Do not expose port 8000 or share a worker token with the frontend.
+The VPC allows **no inbound connections**. Its public address supports outbound installation and SSM; no API/SSH ports are publicly open. API binds to host loopback. The optional AWS-tunnel frontend uses `http://localhost:5173` and reaches AWS through authenticated SSM port forwarding to `http://localhost:8000`. Start it with `npm run dev:aws` from `frontend/`. S3 is private and uses expiring object links. Do not expose port 8000 or share a worker token with the frontend.
 
 ## First deployment
 

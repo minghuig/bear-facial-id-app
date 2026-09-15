@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Full-stack mock acceptance through HTTP. Leaves synthetic records for UI review."""
+"""Test-only deterministic full-stack acceptance through HTTP."""
 import argparse
 import io
 import json
@@ -9,10 +9,16 @@ from pathlib import Path
 import httpx
 from PIL import Image
 
-parser=argparse.ArgumentParser();parser.add_argument('--url',default='http://127.0.0.1:8000');parser.add_argument('--output',default='.private/local-smoke.json');args=parser.parse_args()
+parser=argparse.ArgumentParser();parser.add_argument('--url',default='http://127.0.0.1:19000');parser.add_argument('--output',default='.private/mock-smoke.json');args=parser.parse_args()
 c=httpx.Client(base_url=args.url,timeout=60)
 def call(method,path,**kwargs):
     r=c.request(method,path,**kwargs);r.raise_for_status();return r.json()
+def wait_for_api():
+    deadline=time.monotonic()+60
+    while time.monotonic()<deadline:
+        try:return call('GET','/health')
+        except httpx.HTTPError:time.sleep(.5)
+    raise AssertionError(f'Timed out waiting for {args.url}')
 def wait(photo_id,predicate):
     deadline=time.monotonic()+90
     while time.monotonic()<deadline:
@@ -28,7 +34,7 @@ def upload(prefix,color):
     r=call('POST','/api/photos',files={'files':(prefix+'-'+run+'.png',data,'image/png')})
     assert 'id' in r['photos'][0],r
     return r['photos'][0]['id'],data
-health=call('GET','/health');assert health['pipeline'].startswith('mock'), 'Refuse synthetic smoke against real environment'
+health=wait_for_api();assert health['pipeline'].startswith('mock'), 'Refuse synthetic smoke against real environment'
 first,data=upload('first',(80,40,10))
 p=wait(first,lambda p:p['detection_state']=='complete');assert len(p['heads'])==1
 assert p['heads'][0]['recognition_state']=='not_requested'

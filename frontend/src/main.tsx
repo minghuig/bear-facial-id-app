@@ -122,7 +122,7 @@ function App({identity}:{identity:Identity}){
       }}/>
      </Button>}
     </div>
-    {health.data?.pipeline.startsWith('mock')&&<Typography variant="body2" color="text.secondary">Mock results for development · separate from real inference.</Typography>}
+    {health.data?.pipeline.startsWith('mock')&&<Typography variant="body2" color="text.secondary">Test-only mock results · synthetic and separate from real inference.</Typography>}
     {tab===0?<div className="photo-workspace">
      <PhotoBrowser photos={photos.data||[]} bears={bears.data||[]} selected={selected} onSelect={id=>{setSelected(id);setIndex(0);setBearChoice('');}} pending={pendingUploads} loading={photos.isPending}/>
      {!selected&&<div className="empty-state"><Typography component="h2" variant="h6">Select a photo to review</Typography><Typography color="text.secondary">Review detected heads, then compare similar sightings.</Typography></div>}

@@ -29,43 +29,28 @@ This is an early hobby MVP. Photos and bear identities can be deleted, but backu
 
 ## Run locally
 
-### Quick start with mock inference
-
-Use this mode for UI and workflow development. It needs no AWS account, Google credentials, or model checkpoints. Mock results are synthetic and do not identify real bears.
-
-Install Docker Desktop with Linux containers, Node.js 22.12+ and Python 3.12+. Start Docker, then run these commands from the repository root:
+Local CPU inference is the canonical development environment. Install Docker Desktop with Linux containers, Node.js 22.12+, and Python 3.12+. Put the three trusted model checkpoints in `.private/models/`, then start the stack:
 
 ```sh
-python scripts/local_init.py
-docker compose up -d --build
+make local
+# Or use checkpoints stored elsewhere:
+make local MODELS=/path/to/checkpoints
 ```
 
 Start the frontend in another terminal:
 
 ```sh
-cd frontend
-npm ci
-npm run dev
+make frontend
 ```
 
-Open **http://localhost:5173**. Use `python3` instead of `python` if that is your Python command. On systems with Make, `make local` and `make frontend` are equivalent shortcuts.
-
-The setup creates a private `.env` if one is missing, applies database migrations, and starts the API, PostgreSQL, MinIO, and mock worker. The API binds to `127.0.0.1:8000`; database and object storage stay inside the Docker network.
+Open **http://localhost:5174**. Preparation verifies the checkpoints and creates private local settings while preserving existing credentials. The stack starts the API, PostgreSQL, MinIO, detector, and recognition worker; the API binds to `127.0.0.1:18000`. Database and object storage remain inside Docker.
 
 ```sh
-docker compose logs -f api mock-worker
-docker compose stop
-# Resume without deleting the local library:
-docker compose start
+docker compose --env-file .env.local-real -f compose.yaml -f compose.local-real.yaml logs -f api detector recognition
+make stop
 ```
 
-Avoid `docker compose down -v` unless you intend to erase the local database and photos. If startup fails, check `docker info` and make sure Docker Desktop has finished starting.
-
-### Real inference on a local CPU
-
-`main` supports real detection and recognition in Docker, with no AWS runtime dependency. It uses private model checkpoints, its own data volumes, frontend port **5174**, and API port **18000**.
-
-Follow the [local CPU setup guide](docs/LOCAL_CPU.md). Checkpoints and private photos are not included in a clone. Local CPU mode uses the same application source as the hosted UI, with a separate local database and inference runtime.
+Avoid `docker compose down -v` unless you intend to erase the local database and photos. Checkpoints and private photos are not included in a clone. See the [local CPU setup guide](docs/LOCAL_CPU.md) for direct Compose commands and troubleshooting.
 
 ## Hosted architecture
 
@@ -94,9 +79,9 @@ Deployment requires owner approval. Keep the AWS account on its approved Free Pl
 | Setup, packaging, release utilities | [`scripts/`](scripts/) |
 | Tests and test-data instructions | [`tests/`](tests/) |
 
-Build the frontend with `cd frontend && npm ci && npm run build`. See the [backend test guide](tests/README.md) for PostgreSQL test setup. Use a disposable database; mock tests validate application behavior, not model accuracy.
+Build the frontend with `cd frontend && npm ci && npm run build`. See the [backend test guide](tests/README.md) for PostgreSQL test setup. Use a disposable database; deterministic tests validate application behavior, not model accuracy.
 
-Real bear test photos live in the ignored `.private/test-data/bear-photos/` directory, grouped by bear identity. They are local inputs, not part of the repository. See the [test photo documentation](tests/README.md) for layout and usage. `python scripts/smoke_local.py` provides synthetic workflow fixtures.
+Real bear test photos live in the ignored `.private/test-data/bear-photos/` directory, grouped by bear identity. They are local inputs, not part of the repository. See the [test photo documentation](tests/README.md) for layout and usage. `make mock-smoke` temporarily starts the separately named test-only mock stack on port **19000**, exercises deterministic workflow fixtures, and stops it after a successful run. It is not a development environment.
 
 Before committing, stage only intended files, inspect `git diff --cached`, and run `bash scripts/audit_public.sh` where Bash and ripgrep are available.
 

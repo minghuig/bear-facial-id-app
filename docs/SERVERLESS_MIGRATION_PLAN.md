@@ -99,7 +99,7 @@ For inexpensive Fargate egress, evaluate public-subnet tasks with temporary publ
 - Run orientation, crop generation and substantial image processing in bounded background work. Keep them out of database transactions and short HTTP requests. Unfinished staging uploads require a cleanup lifecycle.
 - Preserve authenticated image access for previews. For large originals, select and test a suitable authenticated streaming/delivery path. If short-lived signed URLs are proposed, document that an issued URL can remain usable until expiry after membership revocation; accept that behavior explicitly before changing the current access contract.
 - Poll only while work is pending or briefly during database resume; stop when complete and when the page is inactive. Passive health checks must not query Aurora. Health and readiness should distinguish application availability from database wake-up.
-- Preserve local mock and real CPU modes. They should not require AWS or Aurora to continue development.
+- Preserve real local CPU development and deterministic mock tests. Neither should require AWS or Aurora.
 
 ## Cost model to revalidate
 

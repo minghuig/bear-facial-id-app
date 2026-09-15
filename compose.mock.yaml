@@ -1,0 +1,19 @@
+# Test-only deterministic inference stack. This is not a development environment.
+name: only-bears-mock-tests
+services:
+  migrate:
+    env_file: !override [.env.mock]
+  api:
+    image: only-bears-mock-tests-api
+    env_file: !override [.env.mock]
+    ports: !override ['127.0.0.1:19000:8000']
+  mock-worker:
+    image: only-bears-mock-tests-worker
+    build: {context: ., dockerfile: workers/Dockerfile.mock}
+    env_file: .env.mock
+    environment:
+      API_URL: 'http://api:8000'
+      MODE: mock
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-local-bears}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-local-bears-storage-password}
+    depends_on: [api]

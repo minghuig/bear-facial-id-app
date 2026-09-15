@@ -1,3 +1,4 @@
+# Shared service definitions. Use `make local` or the explicit `make mock-smoke` test.
 services:
   db:
     image: postgres:16.10
@@ -24,7 +25,6 @@ services:
     command: ['-c', 'until mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-local-bears} ${MINIO_ROOT_PASSWORD:-local-bears-storage-password}; do sleep 2; done; mc mb --ignore-existing local/only-bears']
   migrate:
     build: {context: ., dockerfile: backend/Dockerfile}
-    env_file: .env
     environment:
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-local-bears}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-local-bears-storage-password}
@@ -33,7 +33,6 @@ services:
       db: {condition: service_healthy}
   api:
     build: {context: ., dockerfile: backend/Dockerfile}
-    env_file: .env
     environment:
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-local-bears}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-local-bears-storage-password}
@@ -41,16 +40,6 @@ services:
     depends_on:
       migrate: {condition: service_completed_successfully}
       init-storage: {condition: service_completed_successfully}
-    restart: unless-stopped
-  mock-worker:
-    build: {context: ., dockerfile: workers/Dockerfile.mock}
-    env_file: .env
-    environment:
-      API_URL: 'http://api:8000'
-      MODE: mock
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-local-bears}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-local-bears-storage-password}
-    depends_on: [api]
     restart: unless-stopped
 volumes:
   pgdata:

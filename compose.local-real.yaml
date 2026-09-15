@@ -1,4 +1,4 @@
-# Combine with compose.yaml; independent project and volumes preserve the mock stack.
+# Canonical local development stack. Combine with compose.yaml.
 name: only-bears-local-cpu
 x-real-worker: &real-worker
   env_file: .env.local-real
@@ -24,8 +24,6 @@ services:
     image: only-bears-local-cpu-api
     env_file: !override [.env.local-real]
     ports: !override ['127.0.0.1:18000:8000']
-  mock-worker:
-    profiles: [mock-only]
   init-locks:
     image: only-bears-local-cpu-api
     user: '0'

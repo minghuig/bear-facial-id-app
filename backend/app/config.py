@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     database_url: str = 'postgresql+psycopg://bears:bears@db/bears'
     environment: str = 'local'
+    # The default exists for isolated tests; every runnable stack supplies PIPELINE explicitly.
     pipeline: str = 'mock-v1'
     worker_token: str
     s3_endpoint: str | None = None

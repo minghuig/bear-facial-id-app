@@ -13,3 +13,5 @@ Use the database URL/port appropriate to your local stack. Each API test creates
 Coverage includes automatic and manual recognition modes, photo and bear deletion, no-head and multi-head outcomes, exact-byte deduplication, empty gallery, later-photo matching, correction and rename history, immutable suggestions, exclusions, finite normalized embedding checks, partial failures, bounded retry, stale tokens, heartbeat limits, duplicate result delivery, concurrent claims and recognition requests, worker credentials and pipeline separation.
 
 The API integration tests substitute an in-memory object store and deterministic inference results. They test real PostgreSQL transactions and application logic, but **do not** establish Docker/MinIO integration, process restart survival, AWS deployment, or real model correctness. Those require the separate end-to-end acceptance run.
+
+For deterministic Docker/MinIO workflow coverage, run `make mock-smoke`. This explicitly starts the isolated test-only mock stack on port 19000 and always stops it when the check finishes. Application development uses the real local CPU stack instead.
