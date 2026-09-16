@@ -25,7 +25,7 @@ def aws_identity():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('stage', choices=['detection', 'recognition'])
+    parser.add_argument('stage', choices=['body_detection', 'head_detection', 'recognition'])
     parser.add_argument('--private', type=Path, default=Path('/private'))
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
@@ -55,13 +55,14 @@ def main():
         os.environ['MODEL_DIR'] = str(args.private / 'models')
         import numpy as np
         from PIL import Image, ImageOps
-        for package in ['torch', 'torchvision', 'numpy', 'Pillow', 'mmcv-full', 'mmdet', 'timm']:
+        for package in ['tensorflow-cpu', 'torch', 'torchvision', 'numpy', 'Pillow',
+                        'mmcv-full', 'mmdet', 'timm']:
             try: report['versions'][package] = importlib.metadata.version(package)
             except importlib.metadata.PackageNotFoundError: pass
         root = args.private / 'validation'
         if args.stage == 'recognition':
             from recognition import embed
-            with np.load(root / 'field/field_embeddings.npz', allow_pickle=False) as saved:
+            with np.load(root / 'field/katmai_6y_field_embeddings.npz', allow_pickle=False) as saved:
                 expected = dict(zip(saved['query_id'].astype(str), saved['feature']))
             manifest = json.loads((root / 'field/manifest.json').read_text())['photos']
             assert len(expected) == len(manifest) == 35
@@ -75,7 +76,7 @@ def main():
                 report['rows'].append({'id': row['query_id'], 'cosine': cosine, 'passed': cosine >= .999,
                                        'seconds': time.perf_counter() - before, 'diagnostics': diagnostics})
                 save()
-        else:
+        elif args.stage == 'head_detection':
             from detector import boxes
             expected = json.loads((root / 'pilot/results.json').read_text())['images']
             assert len(expected) == 12
@@ -93,6 +94,22 @@ def main():
                     passed = max(delta[:4]) <= 1 and delta[4] <= .001 and int((actual[:,4] >= .5).sum()) == len(row['displayed'])
                 report['rows'].append({'id': row['image'], 'passed': bool(passed), 'max_abs_delta': delta,
                     'detections': actual.tolist(), 'seconds': time.perf_counter() - before})
+                save()
+        else:
+            from body_detector import model
+            manifest = json.loads((root / 'pilot/manifest.json').read_text())
+            assert len(manifest) == 12
+            for row in manifest:
+                before = time.perf_counter()
+                with Image.open(root / 'pilot' / row['pilot_path']) as source:
+                    image = ImageOps.exif_transpose(source).convert('RGB')
+                detections = model().detect(image)
+                passed = all(
+                    item['category'] > 0 and .9 <= item['confidence'] <= 1 and
+                    len(item['bbox']) == 4 and np.isfinite(item['bbox']).all()
+                    for item in detections)
+                report['rows'].append({'id':row['pilot_path'], 'passed':bool(passed),
+                    'detections':detections, 'seconds':time.perf_counter() - before})
                 save()
         report['status'] = 'passed' if all(row['passed'] for row in report['rows']) else 'failed'
     except Exception as exc:

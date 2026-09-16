@@ -19,7 +19,7 @@ def upload(client, color='brown'):
     return response.json()['photos'][0]
 
 
-def claim(client, stage='detection'):
+def claim(client, stage='body_detection'):
     response = client.post('/internal/jobs/claim', headers=AUTH, json={'stage': stage, 'pipeline': 'mock-v1'})
     assert response.status_code == 200, response.text
     return response.json()
@@ -30,13 +30,28 @@ def submit(client, job, **fields):
         'token': job['token'], 'pipeline': 'mock-v1', 'provenance': {'mode': 'mock'}, **fields})
 
 
-def detect(client, color='brown', boxes=None):
+def detect(client, color='brown', boxes=None, approve=True):
     photo = upload(client, color)
-    job = claim(client)
-    response = submit(client, job, detection={'width': 100, 'height': 80,
-        'boxes': boxes if boxes is not None else [[1, 2, 40, 50, .9]]})
+    body_job = claim(client)
+    head_boxes = boxes if boxes is not None else [[1, 2, 40, 50, .9]]
+    response = submit(client, body_job, body_detection={'width': 100, 'height': 80,
+        'detections': [] if not head_boxes else [
+            {'category': 1, 'confidence': .95, 'bbox': [0, 0, 1, 1]}]})
     assert response.status_code == 200, response.text
-    return photo, client.get(f"/api/photos/{photo['id']}").json()['heads'], job
+    job = body_job
+    if head_boxes:
+        job = claim(client, 'head_detection')
+        assert len(job['bodies']) == 1
+        response = submit(client, job, head_detections=[{'body_index': 0,
+            'width': 100, 'height': 80, 'boxes': head_boxes}])
+        assert response.status_code == 200, response.text
+    heads = client.get(f"/api/photos/{photo['id']}").json()['heads']
+    if approve:
+        for head in heads:
+            response = client.post(f"/api/heads/{head['id']}/crop-review", json={'state': 'accepted'})
+            assert response.status_code == 200, response.text
+        heads = client.get(f"/api/photos/{photo['id']}").json()['heads']
+    return photo, heads, job
 
 
 def recognize(client, photo, heads):
@@ -56,8 +71,9 @@ def test_pause_survives_new_sessions_and_duplicate_result(api):
     with factory() as db:
         assert db.get(Photo, photo['id']).detection_state == 'complete'
         assert {x.recognition_state for x in db.scalars(select(Observation))} == {'not_requested'}
-        assert len(db.scalars(select(Job)).all()) == 1
-    assert submit(client, job, detection={'width': 100, 'height': 80, 'boxes': []}).json()['duplicate']
+        assert len(db.scalars(select(Job)).all()) == 2
+    assert submit(client, job, head_detections=[{'body_index':0, 'width':100, 'height':80,
+        'boxes':[]}]).json()['duplicate']
     assert len(client.get(f"/api/photos/{photo['id']}").json()['heads']) == 2
     assert client.post(f"/api/heads/{heads[1]['id']}/review", json={'state': 'ignored'}).status_code == 200
     recognize(client, photo, heads[:1])
@@ -78,6 +94,77 @@ def test_dedup_no_heads_and_invalid_upload(api):
     with factory() as db:
         assert len(db.scalars(select(Photo)).all()) == 1
         assert len(db.scalars(select(Job)).all()) == 1
+
+
+def test_detected_crops_require_explicit_curation(api):
+    client, _, _ = api
+    photo, heads, _ = detect(client, boxes=[[1,2,40,50,.9], [45,3,80,60,.8]],
+                              approve=False)
+    assert [head['crop_review_state'] for head in heads] == ['pending', 'pending']
+    assert client.get('/api/photos').json()[0]['status_label'] == 'Review detected crops'
+    assert client.post(f"/api/photos/{photo['id']}/recognize").json() == {'queued':0}
+    assert client.post(f"/api/heads/{heads[0]['id']}/review",
+                       json={'state':'unresolved'}).status_code == 409
+    accepted = client.post(f"/api/heads/{heads[0]['id']}/crop-review",
+                           json={'state':'accepted'})
+    rejected = client.post(f"/api/heads/{heads[1]['id']}/crop-review",
+                           json={'state':'rejected'})
+    assert accepted.status_code == rejected.status_code == 200
+    assert client.post(f"/api/photos/{photo['id']}/recognize").json() == {'queued':1}
+    assert client.get(f"/api/heads/{heads[0]['id']}/crop-history").json()[0]['state'] == 'accepted'
+    assert client.get(f"/api/heads/{heads[1]['id']}/crop-history").json()[0]['state'] == 'rejected'
+
+
+def test_head_boxes_are_relative_to_padded_body_crops(api):
+    client, factory, objects = api
+    photo = upload(client)
+    body_job = claim(client)
+    result = submit(client, body_job, body_detection={'width':100,'height':80,
+        'detections':[{'category':1,'confidence':.95,'bbox':[.2,.25,.5,.5]}]})
+    assert result.status_code == 200, result.text
+    head_job = claim(client, 'head_detection')
+    assert [(body['index'],body['crop_box'],body['width'],body['height'])
+            for body in head_job['bodies']] == [(0,[17,18,73,62],56,44)]
+    result = submit(client, head_job, head_detections=[{'body_index':0,'width':56,
+        'height':44,'boxes':[[0,0,20,10,.9], [25,25,30,30,.49]]}])
+    assert result.status_code == 200, result.text
+    head = client.get(f"/api/photos/{photo['id']}").json()['heads'][0]
+    assert head['box'] == [17,18,37,28]
+    assert head['body_index'] == 0 and head['crop_review_state'] == 'pending'
+    with factory() as db:
+        body = db.get(Photo, photo['id']).body_detections[0]
+        assert len(db.get(Photo, photo['id']).detections[0]['boxes']) == 2
+        assert Image.open(io.BytesIO(objects[body['crop_key']])).size == (56,44)
+        observation = db.get(Observation, head['id'])
+        assert Image.open(io.BytesIO(objects[observation.crop_key])).size == (20,10)
+
+
+def test_rejected_crop_does_not_reenter_gallery_after_inflight_worker_error(api):
+    client, factory, _ = api
+    photo, heads, _ = detect(client)
+    path = f"/api/heads/{heads[0]['id']}"
+    assert client.post(f"/api/photos/{photo['id']}/recognize").json() == {'queued':1}
+    job = claim(client, 'recognition')
+    assert client.post(path+'/crop-review',json={'state':'rejected'}).status_code == 200
+    assert submit(client,job,error='worker failed after rejection').status_code == 200
+    with factory() as db:
+        observation = db.get(Observation,heads[0]['id'])
+        assert observation.crop_review_state == 'rejected'
+        assert observation.recognition_state == 'not_requested' and observation.error is None
+    assert client.get(path+'/matches').status_code == 409
+    assert client.post(path+'/crop-review',json={'state':'accepted'}).status_code == 200
+    assert client.post(f"/api/photos/{photo['id']}/recognize").json() == {'queued':1}
+
+
+def test_confirmed_identity_requires_removal_before_rejecting_crop(api):
+    client, _, _ = api
+    _, heads, _ = detect(client)
+    bear = client.post('/api/bears',json={'name':'Known'}).json()
+    path = f"/api/heads/{heads[0]['id']}"
+    assert client.post(path+'/review',json={'state':'confirmed','bear_id':bear['id']}).status_code == 200
+    assert client.post(path+'/crop-review',json={'state':'rejected'}).status_code == 409
+    assert client.post(path+'/review',json={'state':'unresolved'}).status_code == 200
+    assert client.post(path+'/crop-review',json={'state':'rejected'}).status_code == 200
 
 
 def test_correction_rename_history_and_immutable_snapshots(api):
@@ -148,7 +235,13 @@ def test_concurrent_claims_and_recognition_are_singleton(api):
     jobs = [j for j in claimed if j]
     assert len(jobs) == 1
     job = jobs[0]
-    submit(client, job, detection={'width': 100, 'height': 80, 'boxes': [[1, 2, 40, 50, .9]]})
+    submit(client, job, body_detection={'width':100, 'height':80, 'detections':[
+        {'category':1, 'confidence':.95, 'bbox':[0,0,1,1]}]})
+    head_job = claim(client, 'head_detection')
+    submit(client, head_job, head_detections=[{'body_index':0, 'width':100, 'height':80,
+        'boxes':[[1,2,40,50,.9]]}])
+    head = client.get(f"/api/photos/{job['photo_id']}").json()['heads'][0]
+    client.post(f"/api/heads/{head['id']}/crop-review", json={'state':'accepted'})
     with ThreadPoolExecutor(max_workers=4) as pool:
         queued = list(pool.map(lambda _: client.post(f"/api/photos/{job['photo_id']}/recognize").json()['queued'], range(4)))
     assert sorted(queued) == [0, 0, 0, 1]
@@ -156,12 +249,13 @@ def test_concurrent_claims_and_recognition_are_singleton(api):
 
 def test_worker_auth_pipeline_and_result_validation(api):
     client, _, _ = api
-    assert client.post('/internal/jobs/claim', json={'stage': 'detection', 'pipeline': 'mock-v1'}).status_code == 401
-    assert client.post('/internal/jobs/claim', headers=AUTH, json={'stage': 'detection', 'pipeline': 'real-v1'}).status_code == 409
+    assert client.post('/internal/jobs/claim', json={'stage': 'body_detection', 'pipeline': 'mock-v1'}).status_code == 401
+    assert client.post('/internal/jobs/claim', headers=AUTH, json={'stage': 'body_detection', 'pipeline': 'real-v1'}).status_code == 409
     upload(client)
     job = claim(client)
-    assert submit(client, job, detection={'width': 90, 'height': 80, 'boxes': []}).status_code == 422
-    assert submit(client, job, detection={'width': 100, 'height': 80, 'boxes': [[0, 0, 10, 10, 2]]}).status_code == 422
+    assert submit(client, job, body_detection={'width':90, 'height':80,'detections':[]}).status_code == 422
+    assert submit(client, job, body_detection={'width':100,'height':80,'detections':[
+        {'category':1,'confidence':.95,'bbox':[0,0,2,1]}]}).status_code == 422
 
 
 def test_heartbeat_timeout_and_recovery(api):
@@ -208,6 +302,6 @@ def test_cross_origin_mutations_are_rejected(api):
     assert client.post('/api/bears', headers={'Origin': 'http://localhost:5173'}, json={}).status_code == 200
     # CLI and worker clients omit Origin and still use the separate worker credential.
     assert client.post('/internal/jobs/claim', headers=AUTH,
-        json={'stage': 'detection', 'pipeline': 'mock-v1'}).status_code == 200
+        json={'stage': 'body_detection', 'pipeline': 'mock-v1'}).status_code == 200
     with factory() as db:
         assert db.scalars(select(Photo)).all() == []

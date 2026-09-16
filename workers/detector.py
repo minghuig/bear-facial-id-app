@@ -1,4 +1,4 @@
-"""Extracted from bear-id/scripts/run_head_detector_pilot.py. AWS only."""
+"""Run the released head detector on padded body crops. AWS only."""
 import io
 import httpx
 import numpy as np
@@ -30,6 +30,12 @@ def boxes(image):
     return output.tolist()
 
 def detect(job):
-    response=httpx.get(job['url'],timeout=120); response.raise_for_status()
-    image=Image.open(io.BytesIO(response.content)).convert('RGB')
-    return {'detection':{'width':image.width,'height':image.height,'boxes':boxes(image)}}
+    results=[]
+    for body in job['bodies']:
+        response=httpx.get(body['url'],timeout=120); response.raise_for_status()
+        image=Image.open(io.BytesIO(response.content)).convert('RGB')
+        if (image.width,image.height)!=(body['width'],body['height']):
+            raise ValueError('Body crop dimensions do not match job metadata')
+        results.append({'body_index':body['index'],'width':image.width,'height':image.height,
+                        'boxes':boxes(image)})
+    return {'head_detections':results}

@@ -23,4 +23,4 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('directory', type=Path)
     verify(parser.parse_args().directory)
-    print('All three checkpoint hashes verified')
+    print('All four checkpoint hashes verified')

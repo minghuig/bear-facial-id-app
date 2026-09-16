@@ -43,6 +43,9 @@ services:
   detector:
     <<: *worker
     image: ${REGISTRY}/${APP_NAME}/detector:${RELEASE_COMMIT}
+  body-detector:
+    <<: *worker
+    image: ${REGISTRY}/${APP_NAME}/body-detector:${RELEASE_COMMIT}
   recognition:
     <<: *worker
     image: ${REGISTRY}/${APP_NAME}/recognition:${RELEASE_COMMIT}

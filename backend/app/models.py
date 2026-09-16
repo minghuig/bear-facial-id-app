@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, DateTime, ForeignKey, JSON, Integer, Text, UniqueConstraint
+from sqlalchemy import String, DateTime, ForeignKey, JSON, Integer, Text, UniqueConstraint, Float
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from .embedding_spaces import CURRENT_REAL_SPACE
 
 def uid(): return str(uuid.uuid4())
 def now(): return datetime.now(timezone.utc)
@@ -26,6 +27,7 @@ class Photo(OrgScoped, Record, Base):
     height: Mapped[int] = mapped_column(Integer)
     detection_state: Mapped[str] = mapped_column(default='queued')
     pipeline: Mapped[str] = mapped_column(Text)
+    body_detections: Mapped[list] = mapped_column(JSON, default=list)
     detections: Mapped[list] = mapped_column(JSON, default=list)
     provenance: Mapped[dict] = mapped_column(JSON, default=dict)
 class Observation(OrgScoped, Record, Base):
@@ -33,9 +35,13 @@ class Observation(OrgScoped, Record, Base):
     __table_args__ = (UniqueConstraint('photo_id', 'index'),)
     photo_id: Mapped[str] = mapped_column(ForeignKey('photos.id'), index=True)
     index: Mapped[int] = mapped_column(Integer)
+    body_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    detector_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     box: Mapped[list] = mapped_column(JSON)
     crop_key: Mapped[str] = mapped_column(Text)
     pipeline: Mapped[str] = mapped_column(Text)
+    embedding_space: Mapped[str] = mapped_column(Text, default=CURRENT_REAL_SPACE)
+    crop_review_state: Mapped[str] = mapped_column(default='pending')
     recognition_state: Mapped[str] = mapped_column(default='not_requested')
     review_state: Mapped[str] = mapped_column(default='unresolved')
     bear_id: Mapped[str | None] = mapped_column(ForeignKey('bears.id'), nullable=True)
@@ -50,6 +56,10 @@ class Review(OrgScoped, Record, Base):
     observation_id: Mapped[str] = mapped_column(ForeignKey('observations.id'), index=True)
     state: Mapped[str] = mapped_column(String)
     bear_id: Mapped[str | None] = mapped_column(ForeignKey('bears.id'), nullable=True)
+class CropReview(OrgScoped, Record, Base):
+    __tablename__ = 'crop_reviews'
+    observation_id: Mapped[str] = mapped_column(ForeignKey('observations.id'), index=True)
+    state: Mapped[str] = mapped_column(String)
 class Gallery(OrgScoped, Base):
     __tablename__ = 'gallery'
     id: Mapped[int] = mapped_column(primary_key=True)

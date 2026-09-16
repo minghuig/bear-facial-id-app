@@ -33,6 +33,10 @@ services:
     <<: *real-worker
     image: only-bears-local-cpu-detector
     build: {context: ., dockerfile: workers/Dockerfile.detector}
+  body-detector:
+    <<: *real-worker
+    image: only-bears-local-cpu-body-detector
+    build: {context: ., dockerfile: workers/Dockerfile.body-detector}
   recognition:
     <<: *real-worker
     image: only-bears-local-cpu-recognition

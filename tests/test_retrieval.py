@@ -25,6 +25,7 @@ def test_eligibility_ranks_individual_sightings_and_keeps_top_ten():
         query_photo, other_photo = photo(1), photo(2)
         def head(p, index, bear=None, state='confirmed', pipeline='mock-v1', embedding=None):
             o = Observation(photo_id=p.id, index=index, box=[0,0,1,1], crop_key='x', pipeline=pipeline,
+                embedding_space=pipeline, crop_review_state='accepted',
                 bear_id=bear.id if bear else None, review_state=state, embedding=embedding if embedding is not None else V,
                 recognition_state='complete')
             db.add(o); db.flush(); return o
@@ -63,13 +64,16 @@ def test_candidates_include_unassigned_sightings_and_preserve_snapshot_compatibi
         query_photo, known_photo, unknown_photo = photo(1), photo(2), photo(3)
         bear = Bear(name='Cedar'); db.add(bear); db.flush()
         query = Observation(photo_id=query_photo.id, index=0, box=[0,0,1,1], crop_key='q',
-            pipeline='mock-v1', review_state='unresolved', bear_id=None, embedding=V,
+            pipeline='mock-v1', embedding_space='mock-v1', crop_review_state='accepted',
+            review_state='unresolved', bear_id=None, embedding=V,
             recognition_state='complete')
         known = Observation(photo_id=known_photo.id, index=0, box=[0,0,1,1], crop_key='known',
-            pipeline='mock-v1', review_state='confirmed', bear_id=bear.id, embedding=V,
+            pipeline='mock-v1', embedding_space='mock-v1', crop_review_state='accepted',
+            review_state='confirmed', bear_id=bear.id, embedding=V,
             recognition_state='complete')
         unknown = Observation(photo_id=unknown_photo.id, index=0, box=[0,0,1,1], crop_key='unknown',
-            pipeline='mock-v1', review_state='unresolved', bear_id=None,
+            pipeline='mock-v1', embedding_space='mock-v1', crop_review_state='accepted',
+            review_state='unresolved', bear_id=None,
             embedding=[.8,.6]+[0.0]*510, recognition_state='complete')
         db.add_all([query, known, unknown]); db.flush()
 
@@ -96,7 +100,8 @@ def test_candidates_scope_worker_reads_to_query_organization():
                 original_key='x', oriented_key='x', width=100, height=100, pipeline='mock-v1')
             db.add(photo); db.flush()
             observation = Observation(org_id=org_id, photo_id=photo.id, index=0, box=[0,0,1,1],
-                crop_key='x', pipeline='mock-v1', review_state='unresolved', bear_id=None,
+                crop_key='x', pipeline='mock-v1', embedding_space='mock-v1',
+                crop_review_state='accepted', review_state='unresolved', bear_id=None,
                 embedding=embedding, recognition_state='complete')
             db.add(observation); db.flush(); return observation
 
@@ -105,3 +110,25 @@ def test_candidates_scope_worker_reads_to_query_organization():
         head('other-organization', 'closer-cross-org', V)
 
         assert [candidate['reference_id'] for candidate in candidates(db, query)] == [local.id]
+
+
+def test_real_detection_versions_share_pose_embedding_space_but_rejected_crops_do_not():
+    from app.embedding_spaces import CURRENT_REAL_SPACE, LEGACY_REAL_SPACE
+    engine = create_engine('sqlite://')
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        batch = Batch(); db.add(batch); db.flush()
+        def head(sha, pipeline, crop_state='accepted', space=CURRENT_REAL_SPACE):
+            photo = Photo(batch_id=batch.id, sha256=sha, filename=sha, original_key='x',
+                          oriented_key='x', width=100, height=80, pipeline=pipeline)
+            db.add(photo); db.flush()
+            observation = Observation(photo_id=photo.id, index=0, box=[0,0,1,1],
+                crop_key='x', pipeline=pipeline, embedding_space=space,
+                crop_review_state=crop_state, embedding=V, recognition_state='complete')
+            db.add(observation); db.flush()
+            return observation
+        query = head('new','real-v1-body-head')
+        legacy = head('old','real-v1-head-only')
+        head('rejected','real-v1-head-only',crop_state='rejected')
+        head('different-model','real-v1-five-year',space=LEGACY_REAL_SPACE)
+        assert [candidate['reference_id'] for candidate in candidates(db,query)] == [legacy.id]

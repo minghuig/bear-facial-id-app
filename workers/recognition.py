@@ -1,4 +1,4 @@
-"""Verified prototype wiring; separate pose model, flip-sum normalization. AWS only."""
+"""Released six-year PoseSwin ReID; separate pose model, flip-sum normalization."""
 import io
 from types import SimpleNamespace
 import httpx
@@ -19,16 +19,16 @@ def model():
         from vendor.build_swint import ft_net_swin
         torch.set_num_threads(2)
         pose_path=checkpoint('hrnet_w48_balanced_n13_refined.pth')
-        reid_path=checkpoint('test_on_2020_net_60.pth')
+        reid_path=checkpoint('katmai_6y_net_best.pth')
         device=torch.device('cpu')
         cfg=SimpleNamespace(MODEL=SimpleNamespace(AGG_POSE_FEATURE=True))
         pose=SimpleHRNet(48,13,str(pose_path),model_name='HRNet',resolution=(256,256),max_batch_size=1,device=device)
-        backbone=SwinTransformer(img_size=224,patch_size=4,in_chans=3,num_classes=102,
+        backbone=SwinTransformer(img_size=224,patch_size=4,in_chans=3,num_classes=109,
             embed_dim=128,depths=[2,2,18,2],num_heads=[4,8,16,32],window_size=7,mlp_ratio=4.,
             qkv_bias=True,qk_scale=None,drop_rate=0.,attn_drop_rate=0.,drop_path_rate=.2,
             norm_layer=nn.LayerNorm,ape=False,patch_norm=True,use_checkpoint=False,
             fused_window_process=False,cfg=cfg,pose_model=pose)
-        _model=ft_net_swin(class_num=102,return_feature=True,linear_num=512,cfg=cfg,model_ft=backbone)
+        _model=ft_net_swin(class_num=109,return_feature=True,linear_num=512,cfg=cfg,model_ft=backbone)
         state=torch.load(reid_path,map_location='cpu',weights_only=True)
         if isinstance(state.get('state_dict'),dict): state=state['state_dict']
         state={k.removeprefix('module.'):v for k,v in state.items()}

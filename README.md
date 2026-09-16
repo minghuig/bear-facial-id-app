@@ -6,9 +6,11 @@ A shared photo library for identifying individual bears. Upload field photos, fi
 
 ## How it works
 
+The body-to-head crop-curation flow below is implemented in the repository but is not yet released to the linked hosted app. The existing AWS deployment retains its previous head-only behavior until the separately reviewed infrastructure/model upload and release are completed.
+
 1. **Upload photos.** Select up to 20 JPEG or PNG files, up to 25 MiB each. Upload progress and per-photo results appear in the library.
-2. **Find and compare bears.** Detection runs automatically, followed by recognition for eligible heads. Jobs run in the background while you review other photos.
-3. **Review the suggestions.** Inspect each crop and its similarity-ranked matches. Confirm a bear, leave it unidentified, or exclude an unusable crop.
+2. **Find bear heads.** The app detects whole animals, pads each body crop, then detects heads inside each crop.
+3. **Curate and compare.** Approve usable head crops before recognition. Reject false or unusable crops; inspect similarity-ranked matches for accepted crops.
 4. **Build the reference library.** Confirmed references help identify bears in later photos. Review history preserves corrections.
 
 The library supports search, status and bear filters, and pagination. The **Bears** tab shows identities and their reference photos. A similarity score is a ranking aid, not a probability that an identification is correct.
@@ -29,7 +31,7 @@ This is an early hobby MVP. Photos and bear identities can be deleted, but backu
 
 ## Run locally
 
-Local CPU inference is the canonical development environment. Install Docker Desktop with Linux containers, Node.js 22.12+, and Python 3.12+. Put the three trusted model checkpoints in `.private/models/`, then start the stack:
+Local CPU inference is the canonical development environment. Install Docker Desktop with Linux containers, Node.js 22.12+, and Python 3.12+. Put the four trusted model checkpoints in `.private/models/`. The public MegaDetector checkpoint can be installed with `make body-model`; the head and pose checkpoints come from the private prototype artifacts, while the ReID checkpoint is the authors' released `katmai_exps/6y_model/net_best.pth` (stored locally as `katmai_6y_net_best.pth`). Then start the stack:
 
 ```sh
 make local
@@ -43,10 +45,10 @@ Start the frontend in another terminal:
 make frontend
 ```
 
-Open **http://localhost:5174**. Preparation verifies the checkpoints and creates private local settings while preserving existing credentials. The stack starts the API, PostgreSQL, MinIO, detector, and recognition worker; the API binds to `127.0.0.1:18000`. Database and object storage remain inside Docker.
+Open **http://localhost:5174**. Preparation verifies the checkpoints and creates private local settings while preserving existing credentials. The stack starts the API, PostgreSQL, MinIO, body detector, head detector, and recognition worker; the API binds to `127.0.0.1:18000`. Database and object storage remain inside Docker.
 
 ```sh
-docker compose --env-file .env.local-real -f compose.yaml -f compose.local-real.yaml logs -f api detector recognition
+docker compose --env-file .env.local-real -f compose.yaml -f compose.local-real.yaml logs -f api body-detector detector recognition
 make stop
 ```
 

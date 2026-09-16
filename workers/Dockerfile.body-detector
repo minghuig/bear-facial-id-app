@@ -1,0 +1,8 @@
+# MegaDetector v4.1 TensorFlow frozen-graph runtime; build/run on Linux x86.
+FROM --platform=linux/amd64 python:3.11-slim-bookworm
+WORKDIR /worker
+RUN pip install --no-cache-dir tensorflow-cpu==2.15.1 numpy==1.26.4 Pillow==11.3.0 httpx==0.28.1
+COPY workers/ .
+USER 10001
+ENV MODE=real STAGE=body_detection TF_CPP_MIN_LOG_LEVEL=2
+CMD ["python", "worker.py"]

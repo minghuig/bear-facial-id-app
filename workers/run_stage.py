@@ -4,7 +4,10 @@ import json
 import sys
 job = json.load(sys.stdin)
 with contextlib.redirect_stdout(sys.stderr):
-    if sys.argv[1] == 'detection':
+    if sys.argv[1] == 'body_detection':
+        from body_detector import detect
+        result = detect(job)
+    elif sys.argv[1] == 'head_detection':
         from detector import detect
         result = detect(job)
     else:

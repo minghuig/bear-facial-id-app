@@ -45,6 +45,19 @@ def test_failed_detection_retry_uses_current_pipeline_preserving_old_job(api):
         assert new.pipeline == db.get(Photo, photo_id).pipeline == main.s.pipeline
 
 
+def test_failed_pre_upgrade_head_only_job_retries_as_body_detection(api):
+    client, factory, _ = api
+    photo_id, job_id = failed_photo(api)
+    with factory.begin() as db:
+        db.get(Job, job_id).stage = 'detection'
+    assert client.post(f'/api/jobs/{job_id}/retry').status_code == 200
+    with factory() as db:
+        old = db.get(Job, job_id)
+        new = db.scalar(select(Job).where(Job.id != job_id))
+        assert old.state == 'superseded' and old.stage == 'detection'
+        assert new.stage == 'body_detection' and new.pipeline == main.s.pipeline
+
+
 def test_retry_cannot_move_existing_observations_between_pipelines(api):
     client, factory, _ = api
     photo_id, job_id = failed_photo(api)

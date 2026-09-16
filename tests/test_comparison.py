@@ -23,7 +23,8 @@ def seed_head(db, *, filename, embedding=VECTOR, state='unresolved', bear=None,
             width=100, height=80, detection_state='complete', pipeline=pipeline)
         db.add(photo); db.flush()
     head = Observation(org_id=org_id, photo_id=photo.id, index=index, box=[1,2,30,40],
-        crop_key=f'crops/{filename}/{index}', pipeline=pipeline,
+        crop_key=f'crops/{filename}/{index}', pipeline=pipeline, embedding_space=pipeline,
+        crop_review_state='accepted',
         recognition_state='complete', review_state=state,
         bear_id=bear.id if bear else None, embedding=embedding)
     db.add(head); db.flush()

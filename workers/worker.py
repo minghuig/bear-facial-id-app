@@ -19,13 +19,22 @@ client = httpx.Client(base_url=API,headers={'Authorization':'Bearer '+os.environ
 
 def mock(job):
     name = job['filename'].lower()
-    if name.startswith('fail-detection') and job['stage'] == 'detection' and job['attempt'] == 1:
+    if name.startswith('fail-detection') and job['stage'] == 'body_detection' and job['attempt'] == 1:
         raise RuntimeError('Deterministic first-attempt detection failure')
-    if job['stage'] == 'detection':
+    if job['stage'] == 'body_detection':
         w,h = job['width'],job['height']
-        boxes = [] if name.startswith('no-head') else [[w*.1,h*.1,w*.45,h*.7,.95]]
-        if name.startswith(('multi','partial')): boxes.append([w*.55,h*.15,w*.95,h*.75,.9])
-        return {'detection':{'width':w,'height':h,'boxes':boxes}}
+        detections = [] if name.startswith('no-head') else [
+            {'category':1,'confidence':.95,'bbox':[.05,.05,.45,.75]}]
+        if name.startswith(('multi','partial')):
+            detections.append({'category':1,'confidence':.94,'bbox':[.5,.1,.45,.75]})
+        return {'body_detection':{'width':w,'height':h,'detections':detections}}
+    if job['stage'] == 'head_detection':
+        results=[]
+        for body in job['bodies']:
+            w,h=body['width'],body['height']
+            results.append({'body_index':body['index'],'width':w,'height':h,
+                            'boxes':[[w*.1,h*.1,w*.8,h*.8,.95]]})
+        return {'head_detections':results}
     heads = []
     for index, head in enumerate(job['heads']):
         if name.startswith('partial') and index == 1 and job['attempt'] == 1:
@@ -49,7 +58,7 @@ def execute(job):
     return json.loads(completed.stdout)
 
 def main():
-    stages = [STAGE] if STAGE else ['detection','recognition']
+    stages = [STAGE] if STAGE else ['body_detection','head_detection','recognition']
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         while True:
             try:

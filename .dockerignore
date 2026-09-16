@@ -8,6 +8,7 @@ frontend/dist
 .venv
 **/__pycache__
 *.pth
+*.pb
 *.npz
 *.zip
 infra/.terraform

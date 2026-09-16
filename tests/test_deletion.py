@@ -29,7 +29,7 @@ def test_delete_photo_removes_database_records_and_stored_images(api):
         assert db.scalars(select(Review).where(Review.observation_id == heads[0]['id'])).all() == []
         assert db.scalars(select(Batch)).all() == []
         assert db.get(Bear, bear['id']) is not None
-        assert db.get(Gallery, 1).revision == 2
+        assert db.get(Gallery, 1).revision == 3  # crop approval, identity review, deletion
 
 
 def test_delete_bear_requires_no_associated_photos_and_scrubs_saved_candidates(api):
@@ -69,7 +69,7 @@ def test_delete_bear_requires_no_associated_photos_and_scrubs_saved_candidates(a
         history = db.scalars(select(Review).where(
             Review.observation_id == heads[0]['id'])).all()
         assert [(review.state, review.bear_id) for review in history] == [('unresolved', None)]
-        assert db.get(Gallery, 1).revision == 3
+        assert db.get(Gallery, 1).revision == 4  # crop approval plus three identity/gallery changes
 
 
 def test_cross_origin_deletes_are_rejected(api):

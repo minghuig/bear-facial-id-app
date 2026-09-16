@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT=${1:-/repo}
 export LOG=/tmp/release-operations CASE
 mkdir -p /opt/only-bears/releases/test /opt/only-bears/models /srv/only-bears/backups
-touch /opt/only-bears/models/fixture.pth
+touch /opt/only-bears/models/fixture.pth /opt/only-bears/models/fixture.pb
 cat > /srv/only-bears/runtime.env <<'ENV'
 DB_PASSWORD=test
 WORKER_TOKEN=test
@@ -15,6 +15,7 @@ function [() {
   builtin [ "$@"
 }
 cloud-init() { :; }
+uname() { echo x86_64; }
 blkid() { echo fixture-uuid; }
 mountpoint() { :; }
 systemctl() { :; }
@@ -36,7 +37,7 @@ docker() {
   esac
 }
 curl() { printf '{"commit":"test"}\n'; }
-export -f '[' cloud-init blkid mountpoint systemctl aws python3 docker curl
+export -f '[' cloud-init uname blkid mountpoint systemctl aws python3 docker curl
 failures=0
 for CASE in stop_failure first_install existing_install invalid_models public_install; do
   if [[ $CASE == public_install ]]; then
@@ -47,7 +48,7 @@ for CASE in stop_failure first_install existing_install invalid_models public_in
   bash "$ROOT/scripts/remote-release.sh" test us-east-2 bucket registry only-bears vol-test > /tmp/release-output 2>&1
   result=$?
   set -e
-  if [[ $CASE == public_install ]] && ! grep -q 'compose .*compose.public.yaml.*up -d api detector recognition web' "$LOG"; then
+  if [[ $CASE == public_install ]] && ! grep -q 'compose .*compose.public.yaml.*up -d api body-detector detector recognition web' "$LOG"; then
     echo 'FAIL: public release must use auth overlay and start web'; failures=$((failures+1))
   fi
   case $CASE in
@@ -60,7 +61,7 @@ for CASE in stop_failure first_install existing_install invalid_models public_in
         echo 'FAIL: invalid checkpoint must abort before image authentication, build or release'; failures=$((failures+1))
       else echo 'PASS: invalid checkpoint aborts'; fi ;;
     *)
-      if (( result != 0 )) || ! grep -q 'alembic upgrade head' "$LOG" || ! grep -q 'up -d api detector recognition' "$LOG"; then
+      if (( result != 0 )) || ! grep -q 'alembic upgrade head' "$LOG" || ! grep -q 'up -d api body-detector detector recognition' "$LOG"; then
         echo "FAIL: $CASE must back up, migrate and start successfully (exit $result)"; cat /tmp/release-output; failures=$((failures+1))
       else echo "PASS: $CASE releases successfully"; fi ;;
   esac

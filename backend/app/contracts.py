@@ -3,7 +3,16 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class Contract(BaseModel):
     model_config = ConfigDict(extra='forbid', allow_inf_nan=False)
-class DetectionResult(Contract):
+class BodyDetection(Contract):
+    category: int = Field(gt=0)
+    confidence: float = Field(ge=0, le=1)
+    bbox: list[float]
+class BodyDetectionResult(Contract):
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
+    detections: list[BodyDetection]
+class HeadDetectionResult(Contract):
+    body_index: int = Field(ge=0)
     width: int = Field(gt=0)
     height: int = Field(gt=0)
     boxes: list[list[float]]
@@ -16,17 +25,20 @@ class Result(Contract):
     token: str
     pipeline: str
     provenance: dict
-    detection: DetectionResult | None = None
+    body_detection: BodyDetectionResult | None = None
+    head_detections: list[HeadDetectionResult] = Field(default_factory=list)
     heads: list[HeadResult] = Field(default_factory=list)
     error: str | None = None
 class Claim(Contract):
-    stage: Literal['detection', 'recognition']
+    stage: Literal['body_detection', 'head_detection', 'recognition']
     pipeline: str
 class Lease(Contract):
     token: str
 class ReviewInput(Contract):
     state: Literal['confirmed', 'unresolved', 'ignored', 'unusable']
     bear_id: str | None = None
+class CropReviewInput(Contract):
+    state: Literal['accepted', 'rejected']
 class MatchInput(Contract):
     reference_id: str
     expected_bear_id: str | None

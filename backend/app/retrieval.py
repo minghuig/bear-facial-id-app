@@ -13,8 +13,9 @@ def vector(value):
 def candidates(db, query):
     q = vector(query.embedding)
     refs = db.scalars(select(Observation).where(
-        Observation.org_id == query.org_id, Observation.review_state.in_(['confirmed', 'unresolved']),
-        Observation.pipeline == query.pipeline, Observation.photo_id != query.photo_id,
+        Observation.org_id == query.org_id, Observation.crop_review_state == 'accepted',
+        Observation.review_state.in_(['confirmed', 'unresolved']),
+        Observation.embedding_space == query.embedding_space, Observation.photo_id != query.photo_id,
         Observation.id != query.id, Observation.embedding.is_not(None))).all()
     matches = []
     for ref in refs:

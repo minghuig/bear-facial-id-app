@@ -25,7 +25,13 @@ def test_processing_and_empty_photo_labels(api):
     assert status('running', [], set()) == 'Detecting Bears…'
     assert status('failed', [], set()) == 'Detection failed'
     assert status('complete', [], set()) == 'No bears detected'
-    head = SimpleNamespace(id='1', recognition_state='running', review_state='unresolved')
+    head = SimpleNamespace(id='1', crop_review_state='pending',
+                           recognition_state='not_requested', review_state='unresolved')
+    assert status('complete', [head], set()) == 'Review detected crops'
+    head.crop_review_state = 'rejected'
+    assert status('complete', [head], set()) == 'No usable crops'
+    head.crop_review_state = 'accepted'
+    head.recognition_state = 'running'
     assert status('complete', [head], set()) == 'Recognizing Bears…'
     head.recognition_state = 'failed'
     assert status('complete', [head], set()) == 'Recognition failed — retry'

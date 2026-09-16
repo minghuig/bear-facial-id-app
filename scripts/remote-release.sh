@@ -42,13 +42,13 @@ printf 'PIPELINE=%s\n' "$PIPELINE" >> /srv/only-bears/runtime.env
 aws s3 sync "s3://$BUCKET/models/" /opt/only-bears/models/ --region "$REGION" --only-show-errors
 python3 scripts/verify-models.py /opt/only-bears/models
 chmod 755 /opt/only-bears/models
-chmod 644 /opt/only-bears/models/*.pth
+chmod 644 /opt/only-bears/models/*.pth /opt/only-bears/models/*.pb
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY"
 # Build sequentially on AWS. Existing immutable commit tags are reused.
 set -a
 source /srv/only-bears/runtime.env
 set +a
-services=(api detector recognition)
+services=(api body-detector detector recognition)
 compose_files=(-f infra/compose.aws.yaml)
 if [ "${PUBLIC_DEPLOYMENT:-false}" = true ]; then
   : "${PUBLIC_ORIGIN:?Public origin required}"

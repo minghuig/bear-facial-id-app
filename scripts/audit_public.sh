@@ -8,7 +8,7 @@ if git diff --cached --quiet; then
 fi
 
 names=$(git diff --cached --name-only)
-if printf '%s\n' "$names" | rg -n '(^|/)(\.env$|\.private/|\.venv/|node_modules/|dist/|artifacts/|reports/private/)|\.(pth|npz|npy|zip|tar|tfstate|tfplan|pem|key)$'; then
+if printf '%s\n' "$names" | rg -n '(^|/)(\.env$|\.private/|\.venv/|node_modules/|dist/|artifacts/|reports/private/)|\.(pb|pth|npz|npy|zip|tar|tfstate|tfplan|pem|key)$'; then
   echo 'Forbidden private/generated file staged.' >&2
   exit 1
 fi

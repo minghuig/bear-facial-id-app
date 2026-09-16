@@ -4,17 +4,21 @@ from app.models import Job
 from test_workflow import detect, claim, submit, VECTOR
 
 
-def test_detection_queues_recognition_once_and_skips_ignored_heads(api, monkeypatch):
+def test_crop_approval_queues_recognition_and_skips_ignored_heads(api, monkeypatch):
     client, factory, _ = api
     monkeypatch.setattr(main.s, 'auto_recognize', True)
     assert client.get('/api/status').json()['auto_recognize'] is True
     photo, heads, detection = detect(client, boxes=[[1,2,40,50,.9],[45,3,80,60,.8]])
     assert all(h['recognition_state'] == 'queued' for h in heads)
     assert client.post(f"/api/photos/{photo['id']}/recognize").json() == {'queued':0}
-    assert submit(client, detection, detection={'width':100,'height':80,'boxes':[]}).json()['duplicate']
+    assert submit(client, detection, head_detections=[
+        {'body_index':0,'width':100,'height':80,'boxes':[]}]).json()['duplicate']
     with factory() as db:
-        assert len(db.scalars(select(Job).where(Job.stage == 'recognition')).all()) == 1
+        assert len(db.scalars(select(Job).where(Job.stage == 'recognition')).all()) == 2
     client.post(f"/api/heads/{heads[0]['id']}/review", json={'state':'ignored'})
+    job = claim(client, 'recognition')
+    assert job['heads'] == []
+    assert submit(client, job, heads=[]).status_code == 200
     job = claim(client, 'recognition')
     assert [h['observation_id'] for h in job['heads']] == [heads[1]['id']]
     assert submit(client, job, heads=[{'observation_id':heads[1]['id'],'embedding':VECTOR}]).status_code == 200

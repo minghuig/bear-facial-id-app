@@ -9,5 +9,5 @@ RUN pip install --no-cache-dir numpy==1.23.5 setuptools==69.5.1 wheel==0.45.1 &&
  python -c "import torch; from mmcv.ops import nms; import mmdet"
 COPY workers/ .
 USER 10001
-ENV MODE=real STAGE=detection
+ENV MODE=real STAGE=head_detection
 CMD ["python", "worker.py"]

@@ -49,4 +49,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     pipeline = subprocess.check_output([sys.executable, str(ROOT / 'scripts/pipeline.py')], text=True).strip()
     prepare(ROOT, args.models, pipeline)
-    print('Verified three checkpoints; prepared .env.local-real (existing credentials preserved).')
+    print('Verified four checkpoints; prepared .env.local-real (existing credentials preserved).')

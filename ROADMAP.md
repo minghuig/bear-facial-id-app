@@ -13,6 +13,8 @@ Only Bears is a hobby project for a small invited group. The next milestone is a
 
 The hosted account implementation and local CPU tooling are merged into `main`, which is the deployment source. Deployment checks pass, but real-user sign-in and organization-switching verification remain part of the MVP handoff.
 
+The body-to-head detector and explicit head-crop curation are implemented in the repository, pending a separate AWS upgrade and release. The hosted app still uses the prior head-only flow.
+
 ## Next: shared-library MVP
 
 Keep the scope small: individual Google accounts, one permission level, and equal access to photos within an organization.
@@ -35,6 +37,7 @@ These are intentionally deferred from the MVP:
 - Broader acceptance tests across accounts, organizations, retries, restarts, and releases.
 - Operational monitoring, recovery procedures, and clearer failure reporting.
 - Complete documented model-fidelity and identification-quality evaluation.
+- Design and validate pose-quality handling and the product meaning of similarity before adding a threshold or changing candidate aggregation. See [pose and similarity TODO](docs/POSE_AND_SIMILARITY_TODO.md).
 - Revisit retention, data/model permissions, and operating costs before expanding use.
 
 ## Optional follow-ups

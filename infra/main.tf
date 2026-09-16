@@ -86,7 +86,7 @@ resource "aws_s3_bucket_policy" "app" {
   policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Deny", Principal = "*", Action = "s3:*", Resource = [aws_s3_bucket.app.arn, "${aws_s3_bucket.app.arn}/*"], Condition = { Bool = { "aws:SecureTransport" = "false" } } }] })
 }
 resource "aws_ecr_repository" "app" {
-  for_each             = toset(concat(["api", "detector", "recognition"], var.enable_public_mvp ? ["web"] : []))
+  for_each             = toset(concat(["api", "body-detector", "detector", "recognition"], var.enable_public_mvp ? ["web"] : []))
   name                 = "${var.name}/${each.key}"
   image_tag_mutability = "IMMUTABLE"
   image_scanning_configuration {
@@ -112,6 +112,7 @@ resource "aws_iam_role_policy" "app" {
     { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = ["${aws_s3_bucket.app.arn}/*"] },
     { Effect = "Allow", Action = ["s3:DeleteObject"], Resource = [
       "${aws_s3_bucket.app.arn}/photos/*",
+      "${aws_s3_bucket.app.arn}/body-crops/*",
       "${aws_s3_bucket.app.arn}/crops/*",
       "${aws_s3_bucket.app.arn}/previews/*"
     ] },
