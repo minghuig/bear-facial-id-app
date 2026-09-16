@@ -6,8 +6,6 @@ A shared photo library for identifying individual bears. Upload field photos, fi
 
 ## How it works
 
-The body-to-head crop-curation flow below is implemented in the repository but is not yet released to the linked hosted app. The existing AWS deployment retains its previous head-only behavior until the separately reviewed infrastructure/model upload and release are completed.
-
 1. **Upload photos.** Select up to 20 JPEG or PNG files, up to 25 MiB each. Upload progress and per-photo results appear in the library.
 2. **Find bear heads.** The app detects whole animals, pads each body crop, then detects heads inside each crop.
 3. **Curate and compare.** Approve usable head crops before recognition. Reject false or unusable crops; inspect similarity-ranked matches for accepted crops.
@@ -64,11 +62,11 @@ Browser → CloudFront HTTPS → private VPC origin → Caddy
                                                         └─ CPU detection / recognition workers
 ```
 
-Caddy, the API, PostgreSQL, and inference workers share one EC2 instance in **us-east-2 (Ohio)**. The gateway blocks internal worker routes; application sessions protect photo access. Google handles sign-in, and application membership controls organization access.
+Caddy, the API, PostgreSQL, and the body-detection, head-detection, and recognition workers share one EC2 instance in **us-east-2 (Ohio)**. The gateway blocks internal worker routes; application sessions protect photo access. Google handles sign-in, and application membership controls organization access. The hosted recognition worker uses the research authors' six-year Katmai checkpoint; legacy embeddings are regenerated from saved accepted head crops during the model upgrade.
 
 The account implementation and local CPU tooling are merged into `main`. Deployments must use the current `main` commit; the release script rejects other revisions. See the [deployment notes](docs/MVP_IMPLEMENTATION.md) for the current infrastructure state; older tracer documents describe earlier deployment assumptions.
 
-Deployment requires owner approval. Keep the AWS account on its approved Free Plan: running resources consume credits, and those credits are finite. Do not upgrade the account, resize infrastructure, or assume continuous hosting is approved. Never put credentials, Terraform state, checkpoints, or private photos in Git.
+Deployment requires owner approval. Keep the AWS account on its Free Plan: running resources consume the finite credit balance. The owner has approved operating the existing stack until those credits are exhausted, but has not approved a paid-plan upgrade or larger infrastructure. Never put credentials, Terraform state, checkpoints, or private photos in Git.
 
 ## Development and verification
 

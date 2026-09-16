@@ -13,7 +13,7 @@ Only Bears is a hobby project for a small invited group. The next milestone is a
 
 The hosted account implementation and local CPU tooling are merged into `main`, which is the deployment source. Deployment checks pass, but real-user sign-in and organization-switching verification remain part of the MVP handoff.
 
-The body-to-head detector and explicit head-crop curation are implemented in the repository, pending a separate AWS upgrade and release. The hosted app still uses the prior head-only flow.
+The body-to-head detector, explicit head-crop curation, and six-year Katmai ReID model are part of the hosted release. Existing accepted head crops are re-embedded during the model upgrade; original photos do not need to be uploaded again.
 
 ## Next: shared-library MVP
 
@@ -22,7 +22,7 @@ Keep the scope small: individual Google accounts, one permission level, and equa
 - [ ] Complete real-user sign-in and organization-switching checks.
 - [x] Ship the welcoming sign-in page using the existing logo and a field photo.
 - [ ] Add photo deletion, including safe handling of jobs still processing that photo and removal of stored objects.
-- [ ] Bring the deployed account changes into the main development line.
+- [x] Bring the deployed account changes into the main development line.
 - [ ] Evaluate the comparison/review prototype with users before integrating it.
 - [ ] Set a practical hosting schedule or lower-cost arrangement within the approved Free Plan constraints.
 

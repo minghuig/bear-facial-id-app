@@ -1,6 +1,6 @@
 # Manual AWS operations
 
-Status: infrastructure provisioned on m7i-flex.large in Ohio under the approved trial budget. Committed release is building; real inference and application acceptance remain pending.
+Status: infrastructure is provisioned on m7i-flex.large in Ohio. The body-to-head and six-year ReID release uses the existing stack plus one body-detector ECR repository; deployment verification and model-upgrade acceptance must be recorded for each release.
 
 Initial M6a launch was rejected by the Free Plan. The user authorized m7i-flex.large instead; Terraform reused the existing state and created only the remaining instance, database volume and attachment. Preserve the state; refresh and inspect any future plan.
 

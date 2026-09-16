@@ -1,6 +1,6 @@
 # AWS trial cost and approval
 
-The owner-authorized delegate approved up to **$15 before tax for the first month**, **20 total running hours**, and a review after eight hours. After AWS rejected M6a under the Free Plan, the user explicitly selected the largest eligible option: **m7i-flex.large, 2 vCPU / 8 GiB**, in **us-east-2 (Ohio)**. No account-plan upgrade is required for this instance. Model capacity remains unmeasured.
+The initial approval was **$15 before tax for the first month** and **20 total running hours**. On September 15, 2026, after that running-hour allowance had elapsed, the owner explicitly superseded that operator cap and authorized deploying and operating the existing stack against the account's stated **$100 Free Plan credit balance until the credits are exhausted**. This is not authorization to upgrade the account, resize the instance, or add unrelated services. After AWS rejected M6a under the Free Plan, the user selected **m7i-flex.large, 2 vCPU / 8 GiB**, in **us-east-2 (Ohio)**. Model capacity remains unmeasured.
 
 | Resource | Allowance | List-price estimate |
 |---|---|---:|
@@ -15,9 +15,9 @@ The owner-authorized delegate approved up to **$15 before tax for the first mont
 | Outbound transfer allowance | 5 GB | $0.45 |
 | **First-month estimate before credits/tax** | | **$9.32** |
 
-Prices were checked against AWS's Ohio catalog on September 13, 2026. Free Plan eligibility does not mean unlimited use; applicable credits and account limits determine actual billing. The $15 limit is operator-enforced, not an AWS hard cap. Stop and discuss before expanding resources or the running-hour allowance.
+Prices were checked against AWS's Ohio catalog on September 13, 2026. Free Plan eligibility does not mean unlimited use; applicable credits and account limits determine actual billing. The table preserves the original first-month estimate rather than a hard cap. Stop and discuss before upgrading the account, resizing infrastructure, or expanding the deployed service set beyond the reviewed body-detector addition.
 
-The approved stack comprises one EC2 instance, a separate database EBS volume/attachment, private S3 with encryption/public-access blocking/TLS enforcement, three ECR repositories, one log group, an EC2 role/profile and policies, and six networking resources. The API, database and isolated workers share the host. No load balancer, NAT gateway, managed database, GPU or hosted frontend is included.
+The approved stack comprises one EC2 instance, a separate database EBS volume/attachment, private S3 with encryption/public-access blocking/TLS enforcement, five ECR repositories (API, web, body detector, head detector, and recognition), one log group, CloudFront with a private VPC origin, an EC2 role/profile and policies, and the existing networking resources. The API, database and isolated workers share the host. No load balancer, NAT gateway, managed database, GPU, or custom domain is included.
 
 Stopping EC2 preserves data but EBS/ECR/S3/log storage continues consuming approximately $6.30/month at these allowances. Retention beyond the approved first month requires a decision. Never delete owner data automatically to enforce the budget. Database dumps share the database disk and are not disaster recovery.
 
