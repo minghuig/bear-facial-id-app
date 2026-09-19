@@ -1,5 +1,7 @@
 # Full photos-to-comparison prototype
 
+> Historical demo walkthrough. The production app now has a simpler live comparison flow; see [current architecture](ARCHITECTURE.md) and [roadmap](../ROADMAP.md). The demo uses browser-memory-only labels and synthetic scores and must not be used to assess model accuracy.
+
 Open http://127.0.0.1:5175/comparison.html. It now starts at Photos & review with the main-branch photo-library component (copied into comparison/library for isolation), search/status/bear filters, pagination, a selected photo and sighting review panel.
 
 ## Walkthrough
@@ -30,7 +32,7 @@ python scripts/prepare_comparison.py '/path/to/bear-facial-id-app/.private/test-
 - Browser: library screenshot inspected, search2022 -> compare -> unknown confirmation -> return retains filter and selected photo; linked2090 reflects same new bear; current photo excluded from its own reference gallery; named Cedar confirmation returns updated status; lower-ranked C opens selected without changing similarity order; new identity reopen/undo returns safe library; old stale-record crash no longer reachable.
 - Independent review identified stale snapshot after undo and reordered similarity strip. Both fixed and exact browser paths verified.
 
-Source is retained only on codex/comparison-prototype. No merge/deployment/production writes.
+The demo source is present in `frontend/src/comparison/` and `frontend/comparison.html` but is excluded from the production build. Its browser-memory edits are not production writes.
 
 ## Live integration
 

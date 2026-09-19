@@ -1,5 +1,7 @@
 # AWS trial cost and approval
 
+> Historical cost and approval record for the existing EC2 stack. Its dated prices, credit balance, and initial running-hour allowance are not a current AWS bill or approval for new serverless resources. Recheck live usage and costs before infrastructure changes; see the [migration plan](SERVERLESS_MIGRATION_PLAN.md).
+
 The initial approval was **$15 before tax for the first month** and **20 total running hours**. On September 15, 2026, after that running-hour allowance had elapsed, the owner explicitly superseded that operator cap and authorized deploying and operating the existing stack against the account's stated **$100 Free Plan credit balance until the credits are exhausted**. This is not authorization to upgrade the account, resize the instance, or add unrelated services. After AWS rejected M6a under the Free Plan, the user selected **m7i-flex.large, 2 vCPU / 8 GiB**, in **us-east-2 (Ohio)**. Model capacity remains unmeasured.
 
 | Resource | Allowance | List-price estimate |

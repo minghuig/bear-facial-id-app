@@ -8,6 +8,8 @@ The owner reports approximately $100 of AWS credit remaining. There is no immedi
 
 The owner explicitly accepts discarding the current prototype data and starting over. Deploy with an empty database and fresh application-object namespace. Do not migrate existing photos, embeddings, bears, reviews, jobs, users or sessions. Recreate the intended organizations and invitations from configuration, and have users sign in again. This removes data-transfer and data-preserving rollback requirements; it does not instruct this planning task to delete anything.
 
+The current [roadmap](../ROADMAP.md) places manual identification of the owner's approximately 1,000+ McNeil photos **after** this fresh cutover, followed by offline similarity evaluation. Before cutover, reconfirm that substantial manual labeling has not begun in the old app. If it has, pause and explicitly choose whether to preserve/import those records instead of silently applying the reset assumption. The new curated library should not inherit the prototype's disposable-data policy.
+
 ## Decision and intended result
 
 Move to Lambda for web/API execution, standalone ECS Fargate tasks for CPU inference, and Aurora Serverless v2 PostgreSQL for persistent application data. Retain private S3 storage, ECR images, Google sign-in, and the existing CloudFront hostname where practical.
@@ -166,13 +168,13 @@ Deliverable: acceptance report with measured costs and unresolved limitations. P
 
 Use a brief maintenance window. Data continuity and zero downtime are not requirements for this prototype.
 
-1. Announce that the library will reset and users will sign in again. Stop new uploads/dispatch on the old app and cancel or drain its workers. Prevent old tasks and cleanup processes from writing into the new environment.
+1. Reconfirm that the old library remains disposable; if valuable manual McNeil labeling has begun, revisit data preservation before proceeding. Announce that the library will reset and users will sign in again. Stop new uploads/dispatch on the old app and cancel or drain its workers. Prevent old tasks and cleanup processes from writing into the new environment.
 2. Initialize an empty Aurora database using reviewed migrations. Seed Internal Testing and McNeil plus the intended invitation configuration; do not copy historical user/session records. Verify both libraries are empty and isolated.
 3. Configure fresh application storage and scoped runtime credentials. Reuse the verified model artifacts and pinned container images as appropriate; model files are dependencies, not disposable library data. Clear incompatible old browser sessions and OAuth cookies.
 4. Change the existing CloudFront distribution's origins/behaviors to the new stack. Preserve its hostname and OAuth redirect, wait for propagation, and check login, organization switching and empty-library behavior.
 5. Perform a disposable upload, recognition, review and deletion cycle, then begin the observation window. The old app stays inactive so requests during propagation cannot start an independent writable library.
 
-Deliverable: a working fresh deployment, verified release commit, and switch-over evidence. No database export/import, historical S3 reconciliation, CDC, dual writes or reverse-data migration is needed. Schedule the maintenance window when executing; none is scheduled by this plan.
+Deliverable: a working fresh deployment, verified release commit, and switch-over evidence. Under the current reset choice, no database export/import, historical S3 reconciliation, CDC, dual writes or reverse-data migration is needed. Schedule the maintenance window when executing; none is scheduled by this plan. Begin the large McNeil curation pass only after this fresh workflow has been checked.
 
 ### Phase 5 — observe and retire
 
@@ -184,7 +186,7 @@ Retire resources in a separate reviewed change: old workers, obsolete ingress/or
 
 For this prototype migration, rollback may also discard test data. Stop/fence new workflows and writes, restore a known-good deployment (on the retained EC2 host or a replacement), initialize an empty compatible database if necessary, reseed organizations/invitations, and restore CloudFront routing. Have users sign in again. Test this procedure with disposable fixtures in staging; no reverse-data migration is required.
 
-Tell users when a reset occurs. If real field data starts being stored before execution or during the trial, revisit the reset assumption before cutover/rollback. The present acceptance of prototype data loss should not silently become a permanent production retention policy. Aurora backup/restore validation in Phase 3 is preparation for future use, not an obligation to preserve the current prototype.
+Tell users when a reset occurs. If real field data starts being stored before execution or during the trial, revisit the reset assumption before cutover/rollback. The present acceptance of prototype data loss should not silently become a permanent retention policy. Before the full post-cutover labeling pass, choose a modest way to preserve original photos and photo-to-bear decisions through future changes. Aurora backup/restore validation in Phase 3 is preparation for future use, not an obligation to preserve the current prototype.
 
 ## Handoff to the future implementation task
 

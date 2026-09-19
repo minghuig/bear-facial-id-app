@@ -2,7 +2,7 @@
 
 Updated: 2026-09-13
 
-Status: agreed product scope and implementation direction. Application implementation and AWS provisioning have not started. This document is intended to be given directly to an implementation agent.
+Status: historical original implementation handoff. The application and AWS deployment have since been built; this plan is retained for design provenance, not as current implementation or deployment instructions. See the [README](README.md), [architecture](docs/ARCHITECTURE.md), and [roadmap](ROADMAP.md) for the present state.
 
 ## 1. Objective and authority
 

@@ -21,7 +21,9 @@ conditional requests return 304 after validating the record, without S3 reads.
 The version in the variant URL and derivative key must change if encoding or
 dimensions change. This assumes published original photo and completed crop
 objects are immutable, as they are in the current workflow. Bucket access stays
-private and image responses still traverse the authenticated API tunnel.
+private. Hosted browser image responses traverse CloudFront and the authenticated
+API. An optional SSM tunnel reaches the private API for operator diagnostics;
+it does not replace application sign-in.
 
 ## Validation
 

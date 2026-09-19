@@ -1,51 +1,34 @@
-# TODO: pose-quality gating and similarity semantics
+# Similarity evaluation and optional pose-quality work
 
-Status: design and evaluation work only. Do not choose a production threshold or relabel the score without measured evidence.
+Status: design and offline evaluation only. Do not choose a production identity threshold or present raw cosine as a probability without measured, held-out evidence. The [roadmap](../ROADMAP.md) puts this work after the planned fresh serverless deployment and McNeil photo curation; pose gating is a separate, lower-priority question.
 
-## Why this is separate from the body-to-head crop change
+## What the app shows today
 
-The released PoseSwin code computes the mean confidence of the 13 HRNet pose heatmaps for both the original and flipped crop. It returns those values in Only Bears diagnostics, but neither the released research code nor the app currently rejects an embedding based on them. The upstream source contains a commented `avg_conf < 0.8` line; that is a clue about an experiment, not a specified or validated operating threshold.
+The current value is the cosine dot product between two L2-normalized, 512-dimensional six-year PoseSwin embeddings. It ranges from -1 to 1 and ranks reference sightings. It is **not** a probability, calibrated confidence, or statement that the two photos show the same bear. The earlier `test_on_2020` checkpoint produced a different embedding space; its scores and any thresholds must not be reused with the six-year checkpoint.
 
-The body → padded body crop → head detector → manually approved head crop pipeline can therefore ship independently. Pose gating should follow only after evaluating real app inputs, because a poor threshold could discard useful sightings or give reviewers unjustified confidence.
+Results are photo-level: each row is scored against one reference crop, so several photos of one bear can occupy several top-ten positions. Opening a known-bear row shows its other accepted confirmed photos, but those photos did not produce that row's score. A per-bear maximum would deduplicate results without changing the highest-scoring bear; it would still give bears with more reference photos more chances for an unusually high score.
 
-## Decisions the design must make
+The product question is not merely “what is the cosine?” It is “when should a reviewer trust the suggested bear, and when might this be a bear absent from the library?” A pairwise same-bear probability, a top-candidate correctness probability, and an unknown-bear decision are different targets. Define the target before fitting or labeling any new number.
 
-1. Define the unit being gated: original-pose mean, flipped-pose mean, their minimum, their mean, or a per-keypoint rule.
-2. Define the action: warn, sort lower, require an extra review, exclude from the gallery, or skip recognition. A soft warning should be the default candidate until the data supports a hard rejection.
-3. Choose candidate thresholds from measured distributions. Include `0.8` as an upstream-inspired candidate, not a default.
-4. Keep crop approval and pose quality distinct. Crop approval answers “is this actually a usable bear-head crop?”; pose quality estimates whether HRNet found a stable pose signal.
-5. Store the metric definition and threshold version with every recognition result so later comparisons are reproducible.
+## Next: build a trustworthy evaluation set
 
-## Evaluation needed before choosing a threshold
+1. After the planned infrastructure cutover, upload and manually identify the approximately 1,000+ McNeil photos. Confirm usable head crops and distinguish verified identities from uncertain ones. Try a smaller curation batch first to learn whether the review flow needs adjustment.
+2. Keep capture dates or encounter groups from original metadata or an evaluation manifest. Split by independent capture event, not random photos, so near-duplicates cannot inflate results. Reserve held-out encounters for the final comparison.
+3. Check whether these photos are identical or near-duplicate to images in the 2017–2022 McNeil training material for the six-year checkpoint. Such overlap can help exercise the app, but cannot independently establish how well the model generalizes to new photos.
+4. Simulate realistic reference galleries from verified labels: some queries should have their bear represented; others should have their bear deliberately absent. Vary the number of reference photos per bear, since gallery size affects maximum similarity.
+5. Reuse stored embeddings to compare the current best-photo method, one best photo per bear, top-k aggregation, normalized bear centroids, and score gaps between leading *distinct bears*. Report top-1/top-5 identity retrieval, wrong-but-strong suggestions, and known-versus-unknown tradeoffs at candidate cutoffs. Record enough examples to inspect failures by lighting, angle, season, and crop quality.
+6. If the independent sample supports it, fit and evaluate a versioned calibration for a precisely stated claim such as “the top suggested bear is correct under this gallery policy.” Fit and assess on separate data; report uncertainty and the effect of gallery growth. A monotonic rescaling of cosine alone cannot improve ranking, and a small or biased set cannot justify a precise percentage.
 
-- Build a review set of accepted and rejected crops spanning cameras, lighting, blur, occlusion, head angles, seasons, and known repeated bears.
-- Preserve encounter or capture-event separation between evaluation pairs to avoid near-duplicate leakage.
-- For each crop, record `pose_original`, `pose_flipped`, keypoint confidences if exposed, recognition rank, cosine values, and the human crop/identity outcome.
-- Measure coverage versus retrieval quality at several thresholds. At minimum report top-1/top-5 retrieval, false-match rate, false-reject rate, and the share of uploads sent to manual review or excluded.
-- Check performance separately for underrepresented conditions; a globally better threshold can still systematically reject difficult but important sightings.
-- Select a threshold only if it improves the agreed operational metric on held-out data. Otherwise retain diagnostics and warnings without gating.
+The scoring experiments need no new checkpoint or re-embedding once the photos have embeddings. Select the display and decision policy from the evaluation: clearly labeled raw **embedding similarity**, a genuinely calibrated number, or possibly no number. Do not use “confidence,” a percentage, or qualitative bands for raw cosine. Explain which reference photo or aggregate produced the displayed value, and keep historical suggestion definitions/versioning reproducible.
 
-## What “similarity” means today
+## Later, only if useful: pose-quality handling
 
-The current value is the cosine dot product between two L2-normalized, 512-dimensional PoseSwin embeddings. It ranges from -1 to 1 and is used to rank reference sightings. It is not a probability, calibrated confidence, or statement that two photos show the same bear.
+The released PoseSwin code computes mean confidence over 13 HRNet pose heatmaps for the original and flipped crop. Only Bears stores both diagnostics but does not reject an embedding from them. An upstream commented `avg_conf < 0.8` line is an experiment clue, **not** a validated threshold for this app. Crop approval answers whether the crop contains a usable bear head; pose confidence is a different signal and must not be confused with identity confidence.
 
-The released six-year checkpoint uses a different embedding space from `test_on_2020`. Similarity values and any future decision thresholds must be evaluated afresh for that model; legacy and new scores should not be compared as if they shared a calibrated scale.
+If the labeled evaluation reveals a real pose-related failure pattern, compare original/flipped means, their minimum, or per-keypoint rules on held-out encounters. Measure how warnings or exclusions change retrieval and false rejections, including difficult but important photos. Prefer a reversible warning to a hard gate unless the evidence strongly supports exclusion. Keep detector acceptance, pose-quality handling, and identity-match decisions as separately named thresholds.
 
-Results are currently photo-level: each candidate row is scored against one specific reference crop, so several photos assigned to the same bear can occupy several top-10 positions. Opening a known-bear candidate shows the rest of that bear’s accepted confirmed gallery, but those extra photos did not produce that row’s displayed score.
+## Done when a change is justified
 
-## Product questions to resolve
-
-- Decide whether the product should rank photos, bears, or both. If ranking bears, compare max similarity, top-k aggregation, a centroid/prototype, or a learned/set-based method on held-out encounters.
-- Rename the UI value to **embedding similarity** unless and until calibration supports another term. Never call raw cosine “confidence” or display it as a percentage.
-- Decide whether users benefit from the number at all. Candidate order plus qualitative bands may be more honest, but bands also require calibration.
-- If a number remains visible, add an inline explanation of what two crops generated it and keep sufficient precision for reproducibility without implying certainty.
-- Separate three thresholds: detector acceptance, pose-quality handling, and identity-match decision support. They measure different things and must not share a label.
-- Define how a newly confirmed photo changes an existing bear candidate and how to explain multiple supporting photos.
-
-## Acceptance criteria for future implementation
-
-- A versioned evaluation report identifies the dataset split, metric definitions, candidate thresholds, chosen policy, uncertainty, and subgroup checks.
-- API fields name raw cosine explicitly or expose a separately calibrated value with its calibration version.
-- UI copy and tests make clear whether a candidate represents a crop or an aggregated bear.
-- Historical suggestion snapshots retain the score definition/version used when they were created.
-- Any hard pose gate has a visible recovery path and is covered by false-reject monitoring.
+- A versioned report states the verified dataset, encounter split, gallery policy, metrics, candidate cutoffs, uncertainty, and observed failure cases.
+- API/UI score names and tests distinguish raw pairwise cosine from any calibrated or aggregated bear-level value; saved suggestions retain the definition used at the time.
+- Any hard exclusion has a visible reviewer recovery path and measured false-reject behavior.

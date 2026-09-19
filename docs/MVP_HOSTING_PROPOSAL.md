@@ -1,5 +1,7 @@
 # MVP hosting deployment
 
+> Historical provisioning snapshot, not current deployment instructions. CloudFront was subsequently enabled and the invite-only app released. Use [AWS operations](AWS_RELEASE.md) for the existing EC2 stack and the [serverless migration plan](SERVERLESS_MIGRATION_PLAN.md) for the proposed replacement.
+
 Owner approved deployment after Free Plan verification. Apply in progress; public distribution initially disabled. Plan SHA-256: 7d1de5540d0da2eacf35fb1f16de24247cffaf2553478bd16a08fcf1f75f7bc5.
 
 Four resources created: disabled CloudFront distribution using its AWS HTTPS hostname, private VPC origin to existing EC2, web ECR repository, and one security-group ingress rule allowing port 8080 only from CloudFront's service-managed security group. One existing instance-role policy updated to allow the web repository. No replacements/deletions, ALB, NAT gateway, extra EC2, custom domain, or public ingress. Actual VPC-origin support for this account/subnet must be confirmed during creation; failure stops work rather than silently changing account plan or network topology.
