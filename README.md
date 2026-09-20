@@ -1,8 +1,20 @@
 # Only Bears
 
-A shared photo library for identifying individual bears. Upload field photos, find bear heads automatically, and compare them with confirmed reference photos. People make the final identity decisions; model suggestions help with the review.
+A shared photo library for identifying individual brown bears. Upload field photos, find bear heads automatically, and compare them with confirmed reference photos. People make the final identity decisions; model suggestions help with the review.
+
+The app is intended for brown bear photos. Its identification model was trained on brown bears and has not been validated for black bears, other species, or generic photo matching. See [model provenance](docs/INFERENCE.md) for details.
+
+This is a just-for-fun vibe coded app made with Codex, inspired by a trip to McNeil River.
 
 **[Open the app](https://d1u7h1fs60yvpr.cloudfront.net/)** · Invite-only Google sign-in · **[Roadmap](ROADMAP.md)**
+
+## Research foundation and credits
+
+Only Bears builds on the pose-aware brown-bear re-identification research of **Beth Rosenberg, Mu Zhou, Nathan Wolf, Mackenzie Weygandt Mathis, Bradley P. Harris, and Alexander Mathis**:
+
+> Rosenberg, B., Zhou, M., Wolf, N., Weygandt Mathis, M., Harris, B. P., & Mathis, A. (2026). “[Individual identification of brown bears using pose-aware metric learning](https://doi.org/10.1016/j.cub.2025.12.022).” *Current Biology*, 36(3), 645–659.e14. [PubMed](https://pubmed.ncbi.nlm.nih.gov/41558480/).
+
+The recognition worker includes adapted PoseSwin code from the Mathis Lab’s official [BrownBear_ReID repository](https://github.com/amathislab/BrownBear_ReID). We gratefully acknowledge the paper’s authors and the repository’s contributors for making this work available. See [Acknowledgements and research provenance](ACKNOWLEDGMENTS.md) for the pinned source revision, scope, and licensing notes.
 
 ## How it works
 
@@ -13,17 +25,11 @@ A shared photo library for identifying individual bears. Upload field photos, fi
 
 The library supports search, status and bear filters, and pagination. The **Bears** tab shows identities and their reference photos. A similarity score is a ranking aid, not a probability that an identification is correct.
 
-## Research foundation and credits
-
-Only Bears builds on the pose-aware brown-bear re-identification research of **Beth Rosenberg, Mu Zhou, Nathan Wolf, Mackenzie Weygandt Mathis, Bradley P. Harris, and Alexander Mathis**:
-
-> Rosenberg, B., Zhou, M., Wolf, N., Weygandt Mathis, M., Harris, B. P., & Mathis, A. (2026). “[Individual identification of brown bears using pose-aware metric learning](https://doi.org/10.1016/j.cub.2025.12.022).” *Current Biology*, 36(3), 645–659.e14. [PubMed](https://pubmed.ncbi.nlm.nih.gov/41558480/).
-
-The recognition worker includes adapted PoseSwin code from the Mathis Lab’s official [BrownBear_ReID repository](https://github.com/amathislab/BrownBear_ReID). We gratefully acknowledge the paper’s authors and the repository’s contributors for making this work available. See [Acknowledgements and research provenance](ACKNOWLEDGMENTS.md) for the pinned source revision, scope, and licensing notes.
-
 ## Shared access
 
 Each person signs in with their own invited Google account. Members of an organization share its photos, bears, and reviews with equal access. The hosted app has two separate libraries: **Internal Testing** and **McNeil**. Members of both can switch organizations in the app.
+
+The sole owner can use **Settings** to add or remove members from either library. The tab appears only for the configured owner Google account; the API checks that identity on every member-management request. Invitations do not send email, so share the app link with the invited person. See [AWS operations](docs/AWS_RELEASE.md) for setup and the operator recovery command.
 
 This is an early hobby MVP. Photos and bear identities can be deleted, but backups and broader reliability testing are a later milestone. Do not treat the app as the only copy of original field photos.
 
@@ -64,7 +70,7 @@ Browser → CloudFront HTTPS → private VPC origin → Caddy
 
 Caddy, the API, PostgreSQL, and the body-detection, head-detection, and recognition workers share one EC2 instance in **us-east-2 (Ohio)**. The gateway blocks internal worker routes; application sessions protect photo access. Google handles sign-in, and application membership controls organization access. The hosted recognition worker uses the research authors' six-year Katmai checkpoint; legacy embeddings are regenerated from saved accepted head crops during the model upgrade.
 
-The account implementation and local CPU tooling are merged into `main`. Deployments must use the current `main` commit; the release script rejects other revisions. See the [deployment notes](docs/MVP_IMPLEMENTATION.md) for the current infrastructure state; older tracer documents describe earlier deployment assumptions.
+The account implementation and local CPU tooling are merged into `main`. Deployments must use the current `main` commit; the release script rejects other revisions. See the [architecture](docs/ARCHITECTURE.md) and [AWS operations](docs/AWS_RELEASE.md) for the current stack; the [MVP deployment checkpoint](docs/MVP_IMPLEMENTATION.md) and older tracer documents describe earlier deployment assumptions.
 
 Deployment requires owner approval. Keep the AWS account on its Free Plan: running resources consume the finite credit balance. The owner has approved operating the existing stack until those credits are exhausted, but has not approved a paid-plan upgrade or larger infrastructure. Never put credentials, Terraform state, checkpoints, or private photos in Git.
 
