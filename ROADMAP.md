@@ -25,6 +25,7 @@ Once uploads have generated embeddings, scoring and display experiments can reus
 
 ## Small cleanup, as needed
 
+- Before inviting a wider group, add a small owner-only invitation screen. Identify the sole owner by a configured Google `sub` and enforce that check on every management API request; an email address or hidden button is insufficient authorization. Let the owner list pending and active invitations, add or remove a person's membership in either library, and revoke sessions for removed access. Keep the existing operator CLI as a recovery path. Use the current session and CSRF protections, record who changed access and when, and handle Google accounts with third-party email addresses explicitly. This is one owner identity, not a general admin role or permissions system; members retain their current equal library access.
 - Complete real invited-user sign-in and organization-switching checks if still outstanding; the [deployment notes](docs/MVP_IMPLEMENTATION.md) record these as needing owner browser verification.
 - Keep the README, deployment instructions, and historical plans clearly labeled as the architecture changes. Remove stale roadmap items rather than carrying completed MVP work forward.
 - Before the full curation pass, arrange a modest backup or export of photo-to-bear decisions and original photos. This protects the owner's labeling work without becoming a broad reliability program.

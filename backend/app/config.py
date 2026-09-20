@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     google_client_id: str = ''
     google_client_secret: str = ''
     oauth_cookie_secret: str = ''
+    owner_google_sub: str = ''
+    local_owner_settings: bool = False
 
 @lru_cache
 def settings():
@@ -33,6 +35,8 @@ def settings():
         raise ValueError('Unknown authentication mode')
     if s.public_deployment and (s.auth_mode != 'google' or not s.public_origin.startswith('https://')):
         raise ValueError('Public deployment requires Google authentication and HTTPS')
+    if s.local_owner_settings and (s.environment != 'local' or s.auth_mode != 'local' or s.public_deployment):
+        raise ValueError('Local owner settings are only available in local development')
     if s.auth_mode == 'google' and (not s.google_client_id or not s.google_client_secret or len(s.oauth_cookie_secret) < 32):
         raise ValueError('Google authentication configuration is incomplete')
     return s

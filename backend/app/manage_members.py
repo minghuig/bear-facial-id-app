@@ -1,12 +1,12 @@
 """Operator-only invite management: python -m app.manage_members invite ORG EMAIL."""
 import argparse
-from sqlalchemy import select, delete
+from sqlalchemy import delete
 from .db import Session
-from .models import Organization, Membership, LoginSession
+from .models import Organization, Membership, LoginSession, User
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument('action', choices=['invite','remove'])
+    p.add_argument('action', choices=['invite','remove','lookup-sub'])
     p.add_argument('org', choices=['internal-testing','mcneil'])
     p.add_argument('email')
     a = p.parse_args()
@@ -17,6 +17,11 @@ def main():
         if not db.get(Organization,a.org):
             p.error('Run database migrations first')
         member = db.get(Membership, (a.org,email))
+        if a.action == 'lookup-sub':
+            if member is None or member.user_id is None:
+                p.error('This member must sign in before their Google sub can be looked up')
+            print(db.get(User, member.user_id).google_sub)
+            return
         if a.action == 'invite' and member is None:
             db.add(Membership(org_id=a.org,email=email))
         elif a.action == 'remove' and member is not None:

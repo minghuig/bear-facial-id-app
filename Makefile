@@ -1,4 +1,4 @@
-.PHONY: body-model local frontend test mock-smoke release provision stop
+.PHONY: body-model local members-local frontend test mock-smoke release provision stop
 LOCAL_COMPOSE = docker compose --env-file .env.local-real -f compose.yaml -f compose.local-real.yaml
 MOCK_COMPOSE = docker compose --env-file .env.mock -f compose.yaml -f compose.mock.yaml
 
@@ -7,6 +7,9 @@ body-model:
 local:
 	python3 scripts/local_real.py $(if $(MODELS),--models "$(MODELS)",)
 	$(LOCAL_COMPOSE) up -d --build
+members-local:
+	python3 scripts/local_real.py --owner-settings $(if $(MODELS),--models "$(MODELS)",)
+	$(LOCAL_COMPOSE) up -d --build api
 frontend:
 	cd frontend && npm ci && npm run dev
 test:

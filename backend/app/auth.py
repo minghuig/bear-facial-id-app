@@ -116,7 +116,8 @@ def install(app):
     def me(request: Request):
         if s.auth_mode == 'local':
             return {'mode':'local','email':'Local development','org_id':'internal-testing',
-                    'organizations':[{'id':'internal-testing','name':'Internal Testing'}], 'csrf':''}
+                    'organizations':[{'id':'internal-testing','name':'Internal Testing'}],
+                    'csrf':'', 'is_owner':s.local_owner_settings}
         with Session() as db:
             login = current(db, request, require_membership=False)
             user = db.get(User, login.user_id)
@@ -130,6 +131,7 @@ def install(app):
                 login.org_id = orgs[0][0]
                 db.commit()
             return {'mode':'google','email':user.email,'org_id':login.org_id,'csrf':login.csrf,
+                    'is_owner':bool(s.owner_google_sub and user.google_sub == s.owner_google_sub),
                     'organizations':[{'id':oid,'name':name} for oid,name in orgs]}
 
     @app.post('/api/session/organization')

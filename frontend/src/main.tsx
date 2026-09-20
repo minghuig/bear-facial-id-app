@@ -7,11 +7,12 @@ import {SignInPage} from './SignInPage';
 import {PhotoBrowser} from './PhotoBrowser';
 import LiveComparison, {type ConfirmedMatch, type Matches} from './LiveComparison';
 import {ResearchCredits} from './ResearchCredits';
+import {MemberSettings} from './MemberSettings';
 
 const qc = new QueryClient();
 let csrfToken='';
 let currentOrg='';
-type Identity={mode:string;email:string;org_id:string;csrf:string;organizations:{id:string;name:string}[]};
+type Identity={mode:string;email:string;org_id:string;csrf:string;is_owner:boolean;organizations:{id:string;name:string}[]};
 const theme = createTheme({
  palette:{primary:{main:'#315a46'},background:{default:'#f5f6f3'},text:{primary:'#24352b',secondary:'#5b665f'}},
  shape:{borderRadius:8},
@@ -102,7 +103,7 @@ function App({identity}:{identity:Identity}){
     {notice&&<Alert severity={noticeSeverity} onClose={()=>setNotice('')}>{notice}</Alert>}
     <div className="workspace-toolbar">
      <Tabs value={tab} onChange={(_,v)=>setTab(v)} aria-label="Collection views">
-      <Tab label="Photos & review"/><Tab label="Bears"/>
+      <Tab label="Photos & review"/><Tab label="Bears"/>{identity.is_owner&&<Tab label="Settings"/>}
      </Tabs>
      {tab===0&&<Button variant="contained" component="label" disabled={uploadCount>0} aria-busy={uploadCount>0} startIcon={uploadCount>0?<CircularProgress size={16} color="inherit" aria-label="Uploading photos"/>:undefined}>
       {uploadCount>0?`Uploading ${uploadCount} photo${uploadCount===1?'':'s'}…`:'Upload photos'}
@@ -183,11 +184,11 @@ function App({identity}:{identity:Identity}){
        </Stack></CardContent></Card>}
       </div>
      </section>}
-    </div>:<div className="photo-workspace">
+    </div>:tab===1?<div className="photo-workspace">
      <aside className="collection-list" aria-label="Bears"><div className="section-label">Bears <span>{bears.data?.length??0}</span></div><div className="collection-items">
        {bears.data?.map(b=><button type="button" className="collection-item" key={b.id} aria-current={bearView===b.id?'true':undefined} onClick={()=>setBearView(b.id)}><span className="bear-avatar" aria-hidden="true">{b.thumbnail_url?<img src={b.thumbnail_url} alt="" loading="lazy"/>:'—'}</span><span className="item-name">{label(b)}</span></button>)}</div>{!bears.data?.length&&<p className="muted">Create a bear while reviewing a head.</p>}</aside>
      {bearView?<section className="reference-panel"><div className="section-heading"><Typography component="h2" variant="h6" sx={{overflowWrap:'anywhere'}}>{label(viewedBear||{id:bearView,name:null})}</Typography><Stack direction="row" spacing={1}><Button onClick={()=>{setName(viewedBear?.name||'');setDialog('rename');}}>Edit name</Button><Tooltip title={(viewedBear?.photo_count||0)>0?`Reassign or remove this bear from ${viewedBear!.photo_count} associated photo${viewedBear!.photo_count===1?'':'s'} before deleting it.`:''}><span><Button color="error" disabled={busy||(viewedBear?.photo_count||0)>0} onClick={()=>setPendingDelete({kind:'bear',id:bearView,label:label(viewedBear||{id:bearView,name:null})})}>Delete bear</Button></span></Tooltip></Stack></div><Typography variant="body2" color="text.secondary">Confirmed usable heads with valid embeddings become references.</Typography><div className="reference-grid">{refs.data?.map((h,i)=><img key={h.id} src={h.crop_url} alt={`Confirmed reference ${i+1}`}/>)}</div>{refs.error&&<Alert severity="error">{String(refs.error)}</Alert>}{refs.isPending?<Typography color="text.secondary">Loading references…</Typography>:!refs.data?.length&&!refs.error&&<Typography color="text.secondary">No eligible references for this bear yet.</Typography>}</section>:<div className="empty-state"><Typography component="h2" variant="h6">Select a bear to view references</Typography><Typography color="text.secondary">Bear identities stay the same when names change.</Typography></div>}
-    </div>}
+    </div>:<MemberSettings api={api} currentOrg={identity.org_id} localMode={identity.mode==='local'}/>}
     <div className="workspace-footer"><details className="compact-details workspace-help"><summary>How review works</summary><p>Upload JPEG or PNG photos. The app detects whole animals, pads each body crop, then detects heads inside those crops. Approve usable head crops before recognition; rejected crops never enter matching. {health.data?.auto_recognize===false?'Run recognition after approving crops.':'Recognition starts after each approval.'}</p><p>Leave uncertain identities unresolved. Matching quality is experimental; no identity is assigned automatically. One shared collection; bear IDs stay stable when names change.</p></details><Button className="credits-link" onClick={()=>setCreditsOpen(true)}>Research & credits</Button></div>
    </Stack>
   </Container>

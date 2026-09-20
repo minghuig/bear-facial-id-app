@@ -34,6 +34,15 @@ class LocalRealTests(unittest.TestCase):
         self.assertEqual(second['CORS_ORIGIN'], 'http://localhost:5174')
         self.assertEqual(second['AWS_EC2_METADATA_DISABLED'], 'true')
 
+    def test_owner_settings_switch_is_explicit_and_preserved(self):
+        with patch.object(self.module, 'verify'):
+            first = self.module.prepare(self.root, self.root / 'models', 'real-v1-first')
+            second = self.module.prepare(self.root, self.root / 'models', 'real-v1-second', owner_settings=True)
+            third = self.module.prepare(self.root, self.root / 'models', 'real-v1-third')
+        self.assertNotIn('LOCAL_OWNER_SETTINGS', first)
+        self.assertEqual(second['LOCAL_OWNER_SETTINGS'], 'true')
+        self.assertEqual(third['LOCAL_OWNER_SETTINGS'], 'true')
+
 
 if __name__ == '__main__':
     unittest.main()

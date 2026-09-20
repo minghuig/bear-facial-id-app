@@ -23,11 +23,17 @@ from .retrieval import MATCH_LIMIT, candidates, snapshot, vector
 
 s = settings()
 app = FastAPI(title='Only Bears', docs_url=None if s.public_deployment else '/docs', redoc_url=None if s.public_deployment else '/redoc')
-app.add_middleware(CORSMiddleware, allow_origins=[s.cors_origin], allow_methods=['GET','POST','PATCH','DELETE'], allow_headers=['Content-Type','X-CSRF-Token','X-Organization-ID'])
+def browser_origins(config):
+    if (config.environment == 'local' and not config.public_deployment
+            and config.cors_origin in ('http://localhost:5174', 'http://127.0.0.1:5174')):
+        return ['http://localhost:5174', 'http://127.0.0.1:5174']
+    return [config.cors_origin]
+
+app.add_middleware(CORSMiddleware, allow_origins=browser_origins(s), allow_methods=['GET','POST','PATCH','DELETE'], allow_headers=['Content-Type','X-CSRF-Token','X-Organization-ID'])
 @app.middleware('http')
 async def restrict_browser_origin(request: Request, call_next):
     origin = request.headers.get('origin')
-    if request.method not in ('GET','HEAD','OPTIONS') and origin and origin != s.cors_origin:
+    if request.method not in ('GET','HEAD','OPTIONS') and origin and origin not in browser_origins(s):
         return JSONResponse({'detail':'Browser origin is not allowed'}, status_code=403)
     return await call_next(request)
 
@@ -644,3 +650,5 @@ def result(job_id: str, body: Result, db: DB):
 
 from .auth import install as install_auth
 install_auth(app)
+from .member_admin import install as install_member_admin
+install_member_admin(app, s)
